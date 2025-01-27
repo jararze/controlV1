@@ -11,26 +11,96 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithStartRow;
 use Maatwebsite\Excel\Events\BeforeImport;
+use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 
-class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEvents
+class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEvents, WithChunkReading, WithCustomCsvSettings
 {
 
     protected $fileName;
     protected $batchId;
     protected $fechaHora;
+    protected $filePath;
 
-    public function __construct($fileName, $batchId, $fechaHora)
+    public function __construct($fileName, $batchId, $fechaHora, $filePath)
     {
         $this->fileName = $fileName;
         $this->batchId = $batchId;
         $this->fechaHora = $fechaHora;
+        $this->filePath = $filePath;
+    }
+
+    public function getCsvSettings(): array
+    {
+        return [
+            'delimiter' => ',',
+            'enclosure' => '"',
+            'escape_character' => '\\',
+            'contiguous' => false,
+            'input_encoding' => 'UTF-8',
+        ];
+    }
+
+    public function chunkSize(): int
+    {
+        return 1000; // Process 1000 rows at a time
     }
 
     public function startRow(): int
     {
         return 3; // Inicia desde la fila 3
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            BeforeImport::class => function (BeforeImport $event) {
+                try {
+                    Log::info('Starting import process for file: ' . $this->fileName);
+
+                    // Safe check if we have a spreadsheet reader
+                    if ($event->getReader() === null) {
+                        Log::info('CSV import detected - using default headers');
+                        return;
+                    }
+
+                    // Only try to access worksheet for Excel files
+                    $extension = strtolower(pathinfo($this->fileName, PATHINFO_EXTENSION));
+                    if (in_array($extension, ['xlsx', 'xls'])) {
+                        $worksheet = $event->reader->getActiveSheet();
+
+                        // Obtén las dos primeras filas
+                        $firstRow = $worksheet->rangeToArray('A1:' . $worksheet->getHighestColumn() . '1')[0];
+                        $secondRow = $worksheet->rangeToArray('A2:' . $worksheet->getHighestColumn() . '2')[0];
+
+                        // Combina y transforma los encabezados
+                        $cleanedHeaders = array_map(function ($header1, $header2) {
+                            // Combina ambas filas
+                            $combined = trim(($header1 ?? '') . ' ' . ($header2 ?? ''));
+
+                            // Elimina caracteres especiales y reemplaza con _
+                            $cleaned = preg_replace('/[^a-zA-Z0-9]+/', '_', strtolower($combined));
+
+                            // Elimina guion bajo al final, si existe
+                            return rtrim($cleaned, '_');
+                        }, $firstRow, $secondRow);
+
+                        // Sobrescribe las cabeceras transformadas en la primera fila
+                        $worksheet->fromArray([$cleanedHeaders], null, 'A1');
+
+                        // Elimina la segunda fila que ya no es necesaria
+                        $worksheet->removeRow(2);
+
+                        // Registra las cabeceras transformadas en los logs
+                        Log::info('Cabeceras transformadas:', $cleanedHeaders);
+                    }
+                } catch (\Exception $e) {
+                    Log::info('Processing as CSV file - ' . $e->getMessage());
+                }
+            },
+        ];
     }
 
     /**
@@ -43,8 +113,8 @@ class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEven
     */
     public function model(array $row)
     {
-//        Log::info('Procesando fila: ', $row);
         try {
+//            Log::info('Processing row: ', $row);
 
             $fechaSalida = $this->transformExcelDate($row['fecha_salida']);
             $fechaLlegada = $this->transformExcelDate($row['fecha_entrada']);
@@ -153,40 +223,5 @@ class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEven
         return str_replace([' ', '-'], '', trim($value));
     }
 
-    public function registerEvents(): array
-    {
-        return [
-            BeforeImport::class => function (BeforeImport $event) {
-                /** @var Worksheet $worksheet */
-                $worksheet = $event->reader->getActiveSheet();
 
-                // Obtén las dos primeras filas
-                $firstRow = $worksheet->rangeToArray('A1:' . $worksheet->getHighestColumn() . '1')[0];
-                $secondRow = $worksheet->rangeToArray('A2:' . $worksheet->getHighestColumn() . '2')[0];
-
-                // Combina y transforma los encabezados
-                $cleanedHeaders = array_map(function ($header1, $header2) {
-                    // Combina ambas filas
-                    $combined = trim(($header1 ?? '') . ' ' . ($header2 ?? ''));
-
-                    // Elimina caracteres especiales y reemplaza con _
-                    $cleaned = preg_replace('/[^a-zA-Z0-9]+/', '_', strtolower($combined));
-
-                    // Elimina guion bajo al final, si existe
-                    return rtrim($cleaned, '_');
-                }, $firstRow, $secondRow);
-
-                // Sobrescribe las cabeceras transformadas en la primera fila
-                $worksheet->fromArray([$cleanedHeaders], null, 'A1');
-
-                // Elimina la segunda fila que ya no es necesaria
-                $worksheet->removeRow(2);
-
-                // Registra las cabeceras transformadas en los logs
-                Log::info('Cabeceras transformadas:', $cleanedHeaders);
-//                Log::info('Primera fila:', $firstRow);
-//                Log::info('Segunda fila:', $secondRow);
-            },
-        ];
-    }
 }

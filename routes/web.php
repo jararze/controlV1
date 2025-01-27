@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\ArgusController;
+use App\Http\Controllers\BoltrackUpdateController;
 use App\Http\Controllers\CallsController;
+use App\Http\Controllers\DriverController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UploadsController;
 use Illuminate\Support\Facades\Route;
@@ -44,6 +46,12 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('argus/files/select', [ArgusController::class, 'selectFiles'])->name('argus.files.select');
     Route::post('argus/files/process', [ArgusController::class, 'processFiles'])->name('argus.files.process');
     Route::post('argus/files/process/download', [ArgusController::class, 'downloadExcel'])->name('argus.files.process.download');
+
+
+    Route::get('/boltrack/update', [BoltrackUpdateController::class, 'update'])->name('boltrack.update');
+
+
+    Route::get('drivers/index', [DriverController::class, 'index'])->name('drivers.index');
 
 
 

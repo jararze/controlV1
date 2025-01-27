@@ -31,6 +31,10 @@ class ArgusController extends Controller
 
     public function processFiles(Request $request)
     {
+        ini_set('max_execution_time', 1900);
+        ini_set('memory_limit', '10G');
+
+
         $request->validate([
             'truck_file' => 'required|exists:trucks,batch_id',
             'argus_file' => 'required|exists:arguses,batch_id',

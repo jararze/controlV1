@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Imports\ArgusPlanImport;
 use App\Imports\MatrixPlanImport;
 use App\Imports\TruckPlanImport;
+use App\Jobs\ProcessTruckFile;
 use App\Models\Argus;
 use App\Models\BatchCall;
 use App\Models\Truck;
@@ -184,7 +185,7 @@ class UploadsController extends Controller
 //        Log::info('Original Extension:', ['extension' => $request->file('archivo')->getClientOriginalExtension()]);
 
         $request->validate([
-            'archivo' => 'required|file|mimes:csv,txt,text/plain|max:10240',
+            'archivo' => 'required|file|mimes:csv,txt,text/plain,xlsx|max:15240',
             'fecha_hora' => 'required|date',
         ]);
 
@@ -197,22 +198,37 @@ class UploadsController extends Controller
                 return back()->with('error', 'Ya se han cargado datos hasta la fecha de ayer: ' . $ayer);
             }
 
-            DB::transaction(function () use ($request) {
-                Truck::query()->update(['final_status' => 0]);
-                $fechaHora = $request->input('fecha_hora');
-                $batchId = Str::uuid();
-                $fileName = $request->file('archivo')->getClientOriginalName();
-                Excel::import(new TruckPlanImport($fileName, $batchId, $fechaHora), $request->file('archivo'));
-                Log::info('Archivo importado correctamente con batch ID: '.$batchId);
-            });
+//            DB::transaction(function () use ($request) {
+//                Truck::query()->update(['final_status' => 0]);
+//                $fechaHora = $request->input('fecha_hora');
+//                $batchId = Str::uuid();
+//                $fileName = $request->file('archivo')->getClientOriginalName();
+//                Excel::import(new TruckPlanImport($fileName, $batchId, $fechaHora), $request->file('archivo'));
+//                Log::info('Archivo importado correctamente con batch ID: '.$batchId);
+//            });
+
+            $file = $request->file('archivo');
+
+            $destinationPath = storage_path('app/uploads/temp'); // Define the storage path
+            $fileName = $file->getClientOriginalName(); // Get the original file name
+
+            if (!file_exists($destinationPath)) {
+                mkdir($destinationPath, 0777, true);
+            }
+
+//            Log::info('Attempting to store file in: ' . storage_path('app/uploads/temp/' . $file->getClientOriginalName()));
+            $file->move($destinationPath, $fileName);
+            $filePath = 'uploads/temp/' . $fileName;
+//            Log::info('File stored successfully at: ' . storage_path('app/' . $filePath));
+            $batchId = (string) Str::uuid();
+            $fechaHora = $request->input('fecha_hora');
+
+            ProcessTruckFile::dispatch($filePath, $batchId, $fechaHora, $fileName);
 
             return back()->with('success', 'Archivo subido e importado exitosamente');
 
         } catch (\Exception $e) {
-            // Registrar el error en los logs
             Log::error('Error al importar el archivo: '.$e->getMessage());
-
-            // Redirigir con un mensaje de error
             return redirect()->back()->with('error', 'Error:' . $e->getMessage());
         }
     }
