@@ -34,21 +34,21 @@
                 </button>
                 <div class="menu-dropdown menu-default w-full max-w-[175px]" data-menu-dismiss="true">
                     <div class="menu-item">
-                        <a class="menu-link" href="#">
+                        <a class="menu-link" href="{{ $lista }}">
                             <span class="menu-icon"><i class="ki-filled ki-document"></i></span>
-                            <span class="menu-title">Details</span>
+                            <span class="menu-title">Lista</span>
                         </a>
                     </div>
                     <div class="menu-item">
-                        <a class="menu-link" data-modal-toggle="#share_profile_modal" href="#">
+                        <a class="menu-link" data-modal-toggle="#share_profile_modal" href="{{ $href }}">
                             <span class="menu-icon"><i class="ki-filled ki-share"></i></span>
-                            <span class="menu-title">Share</span>
+                            <span class="menu-title">Cargar</span>
                         </a>
                     </div>
                     <div class="menu-item">
                         <a class="menu-link" href="#">
                             <span class="menu-icon"><i class="ki-filled ki-file-up"></i></span>
-                            <span class="menu-title">Export</span>
+                            <span class="menu-title">Exportar</span>
                         </a>
                     </div>
                 </div>

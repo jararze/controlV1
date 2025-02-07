@@ -13,13 +13,13 @@
                 <span class="tooltip">Dashboard</span>
             </a>
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('argus.files.select') ? 'active' : '' }}"
-               data-tooltip="" data-tooltip-placement="right" href="{{ route('argus.files.select') }}">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-profile-circle"></i>
-                </span>
-                <span class="tooltip">Profile</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('argus.files.select') ? 'active' : '' }}"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="{{ route('argus.files.select') }}">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-profile-circle"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">Profile</span>--}}
+{{--            </a>--}}
 
             <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('uploads.index') ? 'active' : '' }}"
                data-tooltip="" data-tooltip-placement="right" href="{{ route('uploads.index') }}">
@@ -37,53 +37,53 @@
                 <span class="tooltip">Drivers</span>
             </a>
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"
-               data-tooltip="" data-tooltip-placement="right" href="">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-security-user"></i>
-                </span>
-                <span class="tooltip">Plans</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-security-user"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">Plans</span>--}}
+{{--            </a>--}}
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"
-               data-tooltip="" data-tooltip-placement="right" href="">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-messages"></i>
-                </span>
-                <span class="tooltip">Security Logs</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-messages"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">Security Logs</span>--}}
+{{--            </a>--}}
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"
-               data-tooltip="" data-tooltip-placement="right" href="">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-shop"></i>
-                </span>
-                <span class="tooltip">Notifications</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-shop"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">Notifications</span>--}}
+{{--            </a>--}}
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"
-               data-tooltip="" data-tooltip-placement="right" href="">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-cheque"></i>
-                </span>
-                <span class="tooltip">ACL</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-cheque"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">ACL</span>--}}
+{{--            </a>--}}
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"
-               data-tooltip="" data-tooltip-placement="right" href="">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-code"></i>
-                </span>
-                <span class="tooltip">API Keys</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-code"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">API Keys</span>--}}
+{{--            </a>--}}
 
-            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"
-               data-tooltip="" data-tooltip-placement="right" href="https://keenthemes.com/metronic/tailwind/docs/">
-                <span class="menu-icon">
-                    <i class="ki-filled ki-question"></i>
-                </span>
-                <span class="tooltip">Docs</span>
-            </a>
+{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
+{{--               data-tooltip="" data-tooltip-placement="right" href="https://keenthemes.com/metronic/tailwind/docs/">--}}
+{{--                <span class="menu-icon">--}}
+{{--                    <i class="ki-filled ki-question"></i>--}}
+{{--                </span>--}}
+{{--                <span class="tooltip">Docs</span>--}}
+{{--            </a>--}}
 
         </div>
     </div>

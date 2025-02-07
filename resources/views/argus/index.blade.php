@@ -78,7 +78,7 @@
                                         </td>
                                         <td>{{ $truck->file_name }}</td>
                                         <td>{{ $truck->fecha_registro ? $truck->fecha_registro->format('Y-m-d') : 'No disponible' }}</td>
-                                        <td>{{ $truck->fecha_registro->diffForHumans() }}</td>
+                                        <td>{{ $truck->fecha_registro ? $truck->fecha_registro->diffForHumans() : 'No disponible' }}</td>
                                         <td>
                                             {!! $truck->final_status == 1
                                                 ? '<span class="badge badge-success badge-outline rounded-[30px]">
@@ -125,7 +125,7 @@
                                         </td>
                                         <td>{{ $argus->file_name }}</td>
                                         <td>{{ $argus->fecha_registro ? $argus->fecha_registro->format('Y-m-d') : 'No disponible' }}</td>
-                                        <td>{{ $argus->fecha_registro->diffForHumans() }}</td>
+                                        <td>{{ $argus->fecha_registro ? $argus->fecha_registro->diffForHumans() : 'No disponible' }}</td>
                                         <td>
                                             {!! $argus->final_status == 1
                                                 ? '<span class="badge badge-success badge-outline rounded-[30px]">

@@ -59,8 +59,7 @@
                                 <button class="tab relative" data-tab-toggle="#notifications_tab_inbox">
                                     Inbox
                                     <span
-                                        class="badge badge-dot badge-success size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full">
-            </span>
+                                        class="badge badge-dot badge-success size-[5px] absolute top-2 rtl:start-0 end-0 transform translate-y-1/2 translate-x-full"></span>
                                 </button>
                                 <button class="tab" data-tab-toggle="#notifications_tab_team">
                                     Team
@@ -81,13 +80,11 @@
                                          data-menu-dismiss="true">
                                         <div class="menu-item">
                                             <a class="menu-link" href="#">
-               <span class="menu-icon">
-                <i class="ki-filled ki-document">
-                </i>
-               </span>
-                                                <span class="menu-title">
-                View
-               </span>
+                                           <span class="menu-icon">
+                                            <i class="ki-filled ki-document">
+                                            </i>
+                                           </span>
+                                                <span class="menu-title">View</span>
                                             </a>
                                         </div>
                                         <div class="menu-item" data-menu-item-offset="-15px, 0"
@@ -350,7 +347,8 @@
                                                 </div>
                                                 <div
                                                     class="card shadow-none flex items-center flex-row gap-1.5 p-2.5 rounded-lg bg-light-active">
-                                                    <img class="h-5" src="{{ asset("assets/media/file-types/pdf.svg") }}"/>
+                                                    <img class="h-5"
+                                                         src="{{ asset("assets/media/file-types/pdf.svg") }}"/>
                                                     <a class="hover:text-primary-active font-medium text-gray-700 text-xs me-1"
                                                        href="#">
                                                         Launch_nov24.pptx
@@ -424,7 +422,8 @@
                                                     class="card shadow-none flex items-center flex-row gap-1.5 p-2.5 rounded-lg bg-light-active">
                                                     <div
                                                         class="flex items-center justify-center w-[26px] h-[30px] shrink-0 bg-light rounded border border-gray-200">
-                                                        <img class="h-5" src="{{ asset("assets/media/file-types/figma.svg") }}"/>
+                                                        <img class="h-5"
+                                                             src="{{ asset("assets/media/file-types/figma.svg") }}"/>
                                                     </div>
                                                     <a class="hover:text-primary-active font-medium text-gray-700 text-xs me-1"
                                                        href="#">
@@ -563,7 +562,8 @@
                                                 <div
                                                     class="card shadow-none flex items-center justify-between flex-row gap-1.5 p-2.5 rounded-lg bg-light-active">
                                                     <div class="flex items-center gap-1.5">
-                                                        <img class="h-6" src="{{ asset("assets/media/file-types/xls.svg") }}"/>
+                                                        <img class="h-6"
+                                                             src="{{ asset("assets/media/file-types/xls.svg") }}"/>
                                                         <div class="flex flex-col gap-0.5">
                                                             <a class="hover:text-primary-active font-medium text-gray-700 text-xs"
                                                                href="#">
@@ -910,7 +910,8 @@
                                                 <div
                                                     class="card shadow-none flex items-center justify-between flex-row gap-1.5 p-2.5 rounded-lg bg-light-active">
                                                     <div class="flex items-center gap-1.5">
-                                                        <img class="h-6" src="{{ asset("assets/media/file-types/word.svg") }}"/>
+                                                        <img class="h-6"
+                                                             src="{{ asset("assets/media/file-types/word.svg") }}"/>
                                                         <div class="flex flex-col gap-0.5">
                                                             <a class="hover:text-primary-active font-medium text-gray-700 text-xs"
                                                                href="#">
@@ -942,7 +943,8 @@
                                                 <div
                                                     class="card shadow-none flex items-center justify-between flex-row gap-1.5 p-2.5 rounded-lg bg-light-active">
                                                     <div class="flex items-center gap-1.5">
-                                                        <img class="h-6" src="{{ asset("assets/media/file-types/svg.svg") }}"/>
+                                                        <img class="h-6"
+                                                             src="{{ asset("assets/media/file-types/svg.svg") }}"/>
                                                         <div class="flex flex-col gap-0.5">
                                                             <a class="hover:text-primary-active font-medium text-gray-700 text-xs"
                                                                href="#">
@@ -1194,7 +1196,8 @@
                                                     class="card shadow-none flex items-center flex-row gap-1.5 p-2.5 rounded-lg bg-light-active">
                                                     <div
                                                         class="flex items-center justify-center w-[26px] h-[30px] shrink-0 bg-white rounded border border-gray-200">
-                                                        <img class="h-5" src="{{ asset("assets/media/brand-logos/jira.svg") }}"/>
+                                                        <img class="h-5"
+                                                             src="{{ asset("assets/media/brand-logos/jira.svg") }}"/>
                                                     </div>
                                                     <a class="hover:text-primary-active font-medium text-gray-700 text-xs me-1"
                                                        href="#">
@@ -1412,7 +1415,8 @@
                                     <div class="flex items-center flex-wrap gap-2">
                                         <div
                                             class="flex items-center justify-center shrink-0 rounded-full bg-gray-100 border border-gray-200 size-11">
-                                            <img alt="" class="size-7" src="{{ asset("assets/media/brand-logos/gitlab.svg") }}"/>
+                                            <img alt="" class="size-7"
+                                                 src="{{ asset("assets/media/brand-logos/gitlab.svg") }}"/>
                                         </div>
                                         <div class="flex flex-col">
                                             <a class="text-2sm font-semibold text-gray-900 hover:text-primary-active"
@@ -1551,7 +1555,8 @@
                              data-scrollable-max-height="auto" data-scrollable-offset="280px">
                             <div class="flex flex-col gap-5 py-5">
                                 <div class="flex items-end gap-3.5 px-5">
-                                    <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-5.png") }}"/>
+                                    <img alt="" class="rounded-full size-9"
+                                         src="{{ asset("assets/media/avatars/300-5.png") }}"/>
                                     <div class="flex flex-col gap-1.5">
                                         <div
                                             class="card shadow-none flex flex-col bg-gray-100 gap-2.5 p-3 rounded-bl-none">
@@ -1583,14 +1588,16 @@
                                         </div>
                                     </div>
                                     <div class="relative shrink-0">
-                                        <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-2.png") }}"/>
+                                        <img alt="" class="rounded-full size-9"
+                                             src="{{ asset("assets/media/avatars/300-2.png") }}"/>
                                         <span
                                             class="size-[4.8px] badge badge-circle badge-success absolute top-7 end-0 transform -translate-y-1/2">
              </span>
                                     </div>
                                 </div>
                                 <div class="flex items-end gap-3.5 px-5">
-                                    <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-4.png") }}"/>
+                                    <img alt="" class="rounded-full size-9"
+                                         src="{{ asset("assets/media/avatars/300-4.png") }}"/>
                                     <div class="flex flex-col gap-1.5">
                                         <div
                                             class="card shadow-none flex flex-col bg-gray-100 gap-2.5 p-3 rounded-bl-none">
@@ -1604,7 +1611,8 @@
                                     </div>
                                 </div>
                                 <div class="flex items-end gap-3.5 px-5">
-                                    <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-1.png") }}"/>
+                                    <img alt="" class="rounded-full size-9"
+                                         src="{{ asset("assets/media/avatars/300-1.png") }}"/>
                                     <div class="flex flex-col gap-1.5">
                                         <div
                                             class="card shadow-none flex flex-col bg-gray-100 gap-2.5 p-3 rounded-bl-none">
@@ -1635,7 +1643,8 @@
                                         </div>
                                     </div>
                                     <div class="relative shrink-0">
-                                        <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-2.png") }}"/>
+                                        <img alt="" class="rounded-full size-9"
+                                             src="{{ asset("assets/media/avatars/300-2.png") }}"/>
                                         <span
                                             class="size-[4.8px] badge badge-circle badge-success absolute top-7 end-0 transform -translate-y-1/2">
              </span>
@@ -1658,14 +1667,16 @@
                                         </div>
                                     </div>
                                     <div class="relative shrink-0">
-                                        <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-2.png") }}"/>
+                                        <img alt="" class="rounded-full size-9"
+                                             src="{{ asset("assets/media/avatars/300-2.png") }}"/>
                                         <span
                                             class="size-[4.8px] badge badge-circle badge-success absolute top-7 end-0 transform -translate-y-1/2">
              </span>
                                     </div>
                                 </div>
                                 <div class="flex items-end gap-3.5 px-5">
-                                    <img alt="" class="rounded-full size-9" src="{{ asset("assets/media/avatars/300-4.png") }}"/>
+                                    <img alt="" class="rounded-full size-9"
+                                         src="{{ asset("assets/media/avatars/300-4.png") }}"/>
                                     <div class="flex flex-col gap-1.5">
                                         <div
                                             class="card shadow-none flex flex-col bg-gray-100 gap-2.5 p-3 rounded-bl-none">
@@ -1683,7 +1694,8 @@
                         <div class="mb-2.5">
                             <div class="flex grow gap-2 p-5 bg-gray-100 mb-2.5" id="join_request">
                                 <div class="relative shrink-0">
-                                    <img alt="" class="rounded-full size-8" src="{{ asset("assets/media/avatars/300-14.png") }}"/>
+                                    <img alt="" class="rounded-full size-8"
+                                         src="{{ asset("assets/media/avatars/300-14.png") }}"/>
                                     <span
                                         class="size-1.5 badge badge-circle bg-gray-400 absolute top-7 end-0.5 ring-1 ring-light transform -translate-y-1/2">
             </span>
@@ -1757,7 +1769,8 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <div
                                         class="flex items-center justify-center shrink-0 rounded-full bg-gray-100 border border-gray-200 size-10">
-                                        <img alt="" class="size-6" src="{{ asset("assets/media/brand-logos/jira.svg") }}"/>
+                                        <img alt="" class="size-6"
+                                             src="{{ asset("assets/media/brand-logos/jira.svg") }}"/>
                                     </div>
                                     <div class="flex flex-col">
                                         <a class="text-2sm font-semibold text-gray-900 hover:text-primary-active"
@@ -1779,7 +1792,8 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <div
                                         class="flex items-center justify-center shrink-0 rounded-full bg-gray-100 border border-gray-200 size-10">
-                                        <img alt="" class="size-6" src="{{ asset("assets/media/brand-logos/inferno.svg") }}"/>
+                                        <img alt="" class="size-6"
+                                             src="{{ asset("assets/media/brand-logos/inferno.svg") }}"/>
                                     </div>
                                     <div class="flex flex-col">
                                         <a class="text-2sm font-semibold text-gray-900 hover:text-primary-active"
@@ -1801,7 +1815,8 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <div
                                         class="flex items-center justify-center shrink-0 rounded-full bg-gray-100 border border-gray-200 size-10">
-                                        <img alt="" class="size-6" src="{{ asset("assets/media/brand-logos/evernote.svg") }}"/>
+                                        <img alt="" class="size-6"
+                                             src="{{ asset("assets/media/brand-logos/evernote.svg") }}"/>
                                     </div>
                                     <div class="flex flex-col">
                                         <a class="text-2sm font-semibold text-gray-900 hover:text-primary-active"
@@ -1823,7 +1838,8 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <div
                                         class="flex items-center justify-center shrink-0 rounded-full bg-gray-100 border border-gray-200 size-10">
-                                        <img alt="" class="size-6" src="{{ asset("assets/media/brand-logos/gitlab.svg") }}"/>
+                                        <img alt="" class="size-6"
+                                             src="{{ asset("assets/media/brand-logos/gitlab.svg") }}"/>
                                     </div>
                                     <div class="flex flex-col">
                                         <a class="text-2sm font-semibold text-gray-900 hover:text-primary-active"
@@ -1845,7 +1861,8 @@
                                 <div class="flex items-center flex-wrap gap-2">
                                     <div
                                         class="flex items-center justify-center shrink-0 rounded-full bg-gray-100 border border-gray-200 size-10">
-                                        <img alt="" class="size-6" src="{{ asset("assets/media/brand-logos/google-webdev.svg") }}"/>
+                                        <img alt="" class="size-6"
+                                             src="{{ asset("assets/media/brand-logos/google-webdev.svg") }}"/>
                                     </div>
                                     <div class="flex flex-col">
                                         <a class="text-2sm font-semibold text-gray-900 hover:text-primary-active"
