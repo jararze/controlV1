@@ -26,11 +26,11 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-7.5">
 
 
-            <x-card-index-component icon="ki-setting" title="Matriz" subtitle="Carga de matriz" descrption="La matriz que llega dos veces al dia" href="{{ route('uploads.index.matriz') }}"  lista="{{ route('uploads.index.matriz') }}" />
+            <x-card-index-component icon="ki-setting" title="Matriz" subtitle="Carga de matriz" descrption="La matriz que llega dos veces al dia" href="{{ route('uploads.index.matriz') }}"  lista="{{ route('uploads.index.matriz.index') }}" />
 
-            <x-card-index-component icon="ki-chart-line-up-2" title="Carga de archivo de truck" subtitle="Carga para la matrix principal de truck" descrption="Carga masiva de truck por mes para viajes" />
+            <x-card-index-component icon="ki-chart-line-up-2" title="Carga de archivo de truck" subtitle="Carga para la matrix principal de truck" descrption="Carga masiva de truck por mes para viajes" href="{{ route('uploads.index.truck') }}"  lista="{{ route('uploads.index.truck.index') }}" />
 
-            <x-card-index-component icon="ki-design-1" title="Carga Argus" subtitle="Carga para eliminar viajes NO CBN" descrption="Carga para eliminar viajes NO CBN" />
+            <x-card-index-component icon="ki-design-1" title="Carga Argus" subtitle="Carga para eliminar viajes NO CBN" descrption="Carga para eliminar viajes NO CBN"  href="{{ route('uploads.index.argus') }}"  lista="{{ route('uploads.index.argus.index') }}" />
 
 
 

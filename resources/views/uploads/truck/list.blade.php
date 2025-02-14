@@ -69,56 +69,54 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                @foreach($result as $truck)
-                                    <tr>
-                                        <td>
-                                            <input class="checkbox checkbox-sm" data-datatable-row-check="true"
-                                                   type="checkbox" value="{{ $truck->batch_id }}"/>
-                                        </td>
-                                        <td>
-                                            <div class="flex items-center gap-4">
-                                                <div class="flex flex-col gap-0.5">
+                                <tr>
+                                    <td>
+                                        <input class="checkbox checkbox-sm" data-datatable-row-check="true"
+                                               type="checkbox"/>
+                                    </td>
+                                    <td>
+                                        <div class="flex items-center gap-4">
+                                            <div class="flex flex-col gap-0.5">
                                                     <span
-                                                        class="leading-none font-medium text-sm text-gray-900">{{ $truck->file_name }}</span>
-                                                </div>
+                                                        class="leading-none font-medium text-sm text-gray-900">Archivo Truck</span>
                                             </div>
-                                        </td>
-                                        <td>
-                                            {{ $truck->fecha_registro ? $truck->fecha_registro->format('Y-m-d') : 'No disponible' }}
-                                        </td>
-                                        <td class="text-sm text-gray-800 font-normal">
-                                            {{ $truck->fecha_registro->diffForHumans() }}
-                                        </td>
-                                        <td>
-                                            {!! $truck->final_status == 1
-                                                ? '<span class="badge badge-success badge-outline rounded-[30px]">
-                                                     <span class="size-1.5 rounded-full bg-success me-1.5"></span> Activo
-                                                   </span>'
-                                                : '<span class="badge badge-danger badge-outline rounded-[30px]">
-                                                     <span class="size-1.5 rounded-full bg-danger me-1.5"></span> Inactivo
-                                                   </span>'
-                                            !!}
-                                        </td>
-                                        <td>
-                                            <a class="btn btn-sm btn-icon btn-clear btn-light"
-                                               href="{{ route("uploads.index.matrix.work", $truck->batch_id) }}">
-                                                <i class="ki-filled ki-notepad-edit">
-                                                </i>
-                                            </a>
-                                        </td>
-                                        <td>
-                                            <form action="{{ route('uploads.index.matrix.destroy', $truck->batch_id) }}"
-                                                  method="POST"
-                                                  onsubmit="return confirm('Are you sure you want to delete this file?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-icon btn-clear btn-light">
-                                                    <i class="ki-filled ki-trash"></i>
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                @endforeach
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {{ $result->fecha_registro ? Carbon\Carbon::parse($result->fecha_registro)->format('Y-m-d') : 'No disponible' }}
+                                    </td>
+                                    <td class="text-sm text-gray-800 font-normal">
+                                        {{ Carbon\Carbon::parse($result->fecha_registro)->diffForHumans() }}
+                                    </td>
+                                    <td>
+                                        {!! $result->updated_at->isToday()
+                                            ? '<span class="badge badge-success badge-outline rounded-[30px]">
+                                                 <span class="size-1.5 rounded-full bg-success me-1.5"></span> Truck actualizado a hoy
+                                               </span>'
+                                            : '<span class="badge badge-danger badge-outline rounded-[30px]">
+                                                 <span class="size-1.5 rounded-full bg-danger me-1.5"></span> Truck no esta actualizado!
+                                               </span>'
+                                        !!}
+                                    </td>
+                                    <td>
+                                        <a class="btn btn-sm btn-icon btn-clear btn-light"
+                                           href="{{ route("uploads.index.truck.work") }}">
+                                            <i class="ki-filled ki-notepad-edit">
+                                            </i>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <form action="{{ route('uploads.index.truck.destroy') }}"
+                                              method="POST"
+                                              onsubmit="return confirm('Are you sure you want to delete this file?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-icon btn-clear btn-light">
+                                                <i class="ki-filled ki-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
 
 
                                 </tbody>

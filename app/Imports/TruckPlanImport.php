@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Truck;
+use App\Models\TruckHistory;
 use Carbon\Carbon;
 use Exception;
 use Maatwebsite\Excel\Concerns\ToModel;
@@ -123,7 +124,7 @@ class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEven
 //                'transformado' => $this->transformExcelDate($row['fecha_salida']),
 //            ]);
 
-            return new Truck([
+            $newData = [
                 'cod' => $this->nullIfEmpty($row['cod_ori']),
                 'deposito_origen' => $this->nullIfEmpty($row['deposito_origen']),
                 'cod_destino' => $this->nullIfEmpty($row['cod_des']),
@@ -159,9 +160,49 @@ class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEven
                 'file_name' => $this->fileName,
                 'fecha_registro' => $this->fechaHora,
                 'final_status' => "1",
-            ]);
+            ];
+
+            // Buscar registro existente por planilla y patente
+            $existingRecord = Truck::where('planilla', $newData['planilla'])
+                ->where('patente', $newData['patente'])
+                ->where('cod_producto', $newData['cod_producto'])
+                ->first();
+
+            if ($existingRecord) {
+                // Comparar campos para detectar cambios
+                $changes = array_diff_assoc($newData, $existingRecord->toArray());
+
+                // Remover campos que no queremos comparar
+                unset($changes['batch_id'], $changes['file_name'], $changes['fecha_registro']);
+
+                if (!empty($changes)) {
+                    // Guardar registro actual en histórico
+                    TruckHistory::create([
+                        'planilla' => $existingRecord->planilla,
+                        'patente' => $existingRecord->patente,
+                        'cod_producto' => $existingRecord->cod_producto,
+                        'fecha_salida' => $existingRecord->fecha_salida,
+                        'batch_id' => $existingRecord->batch_id,
+                        'original_data' => $existingRecord->toArray(),
+                        'change_type' => 'UPDATE',
+                        'changed_at' => now(),
+                    ]);
+
+                    // Actualizar registro existente
+                    $existingRecord->update($newData);
+                    return null; // No crear nuevo registro
+                }
+
+                return null; // No hay cambios, no hacer nada
+            }
+
+            // Si no existe registro previo, crear uno nuevo
+            return new Truck($newData);
+
+
         } catch (Exception $e) {
             Log::error("Error procesando fila: " . json_encode($row) . " - " . $e->getMessage());
+            return null;
         }
     }
 

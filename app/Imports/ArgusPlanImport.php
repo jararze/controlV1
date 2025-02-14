@@ -8,38 +8,97 @@ use Exception;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
+use Maatwebsite\Excel\Concerns\SkipsOnError;
+use Maatwebsite\Excel\Concerns\SkipsErrors;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
+use Illuminate\Support\Str;
 
-class ArgusPlanImport implements ToModel, WithHeadingRow
+class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, WithBatchInserts, SkipsOnError
 {
+    use SkipsErrors;
+
     protected $fileName;
-    protected $batchId;
+    protected $originalBatchId;
     protected $fechaHora;
+    protected $batchesByDate = [];
+    protected $meses = [
+        1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril',
+        5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto',
+        9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'
+    ];
 
     public function __construct($fileName, $batchId, $fechaHora)
     {
         $this->fileName = $fileName;
-        $this->batchId = $batchId;
+        $this->originalBatchId = $batchId;
         $this->fechaHora = $fechaHora;
     }
 
     /**
-     * @param  array  $row
-     *
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * @return int
      */
+    public function chunkSize(): int
+    {
+        return 1000;
+    }
+
+    /**
+     * @return int
+     */
+    public function batchSize(): int
+    {
+        return 1000;
+    }
+
     public function model(array $row)
     {
-//        Log::info('Procesando fila: ', $row);
         try {
+            $fechaOriginal = $row['dia'] ?? null;
+            $horaOriginal = $row['hora_alarme'] ?? null;
 
-            $dia = $this->transformExcelDate($row['dia']);
-            $hora_alarma = $this->transformExcelDate($row['hora_alarme']);
+            Log::info('Procesando fechas', [
+                'fecha_original' => $fechaOriginal,
+                'hora_original' => $horaOriginal
+            ]);
 
-//            Log::info('Procesando alarma:', [
-//                'valor_original' => $row['hora_alarme'],
-//                'transformado' => $this->transformExcelDate($row['hora_alarme']),
-//            ]);
+            if (!$fechaOriginal) {
+                Log::warning('Fecha no encontrada', ['row' => $row]);
+                return null;
+            }
+
+            // Convertir fecha y hora usando el método probado
+            $dia = $this->transformExcelDate($fechaOriginal);
+            $hora_alarma = $this->transformExcelDateWithTime($horaOriginal);
+
+            Log::info('Fechas transformadas', [
+                'fecha_original' => $fechaOriginal,
+                'fecha_transformada' => $dia,
+                'hora_original' => $horaOriginal,
+                'hora_transformada' => $hora_alarma
+            ]);
+
+            if (!$dia) {
+                Log::warning('Error al convertir fecha', ['fecha_original' => $fechaOriginal]);
+                return null;
+            }
+
+            // Obtener la fecha base para el batch_id
+            $carbonFecha = Carbon::parse($dia);
+            $fechaBase = $carbonFecha->format('Y-m-d');
+
+            // Generar batchId por fecha si no existe
+            if (!isset($this->batchesByDate[$fechaBase])) {
+                $this->batchesByDate[$fechaBase] = (string) Str::uuid();
+                Log::info('Nuevo batch generado', [
+                    'fecha_base' => $fechaBase,
+                    'batch_id' => $this->batchesByDate[$fechaBase]
+                ]);
+            }
+
+            // Generar nombre de archivo con fecha correcta
+            $fileName = $carbonFecha->day . ' ' . $this->meses[$carbonFecha->month];
 
             return new Argus([
                 'operacion' => $this->nullIfEmpty($row['operacao']),
@@ -47,32 +106,30 @@ class ArgusPlanImport implements ToModel, WithHeadingRow
                 'dia' => $dia,
                 'evento' => $this->nullIfEmpty($row['evento']),
                 'motorista' => $this->nullIfEmpty($row['motorista']),
-                'hora_alarma' => $hora_alarma,
+                'hora_alarma' => $hora_alarma ?? $dia,
                 'velocidade' => $this->nullIfEmpty($row['velocidade']),
-                'latitude' => str_replace(',', '.', $row['latitude']),
-                'longitude' => str_replace(',', '.', $row['longitude']),
+                'latitude' => $this->transformCoordinate($row['latitude'] ?? $row['-18'] ?? 0),
+                'longitude' => $this->transformCoordinate($row['longitude'] ?? 0),
                 'event_id' => $this->nullIfEmpty($row['id']),
-                'batch_id' => $this->batchId,
-                'file_name' => $this->fileName,
+                'batch_id' => $this->batchesByDate[$fechaBase],
+                'file_name' => $fileName,
                 'fecha_registro' => $this->fechaHora,
                 'final_status' => "1",
             ]);
+
         } catch (Exception $e) {
-            Log::error("Error procesando fila: ".json_encode($row)." - ".$e->getMessage());
+            Log::error("Error procesando fila en Argus Import", [
+                'row' => $row,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
     }
 
-    private function nullIfEmpty($value): ?string
+    private function transformExcelDate($value)
     {
-        // Elimina espacios adicionales y caracteres no imprimibles
-        $value = trim($value);
-        return empty($value) ? null : $value;
-    }
 
-
-    private function transformExcelDate($value): ?string
-    {
-        $value = $this->nullIfEmpty($value); // Verifica si el valor está vacío
+        $value = $this->nullIfEmpty($value);
 
         if (is_null($value)) {
             return null;
@@ -80,55 +137,107 @@ class ArgusPlanImport implements ToModel, WithHeadingRow
 
         $value = trim($value);
 
-        // Si es un número (serial de Excel)
-        if (is_numeric($value)) {
-            return Carbon::instance(Date::excelToDateTimeObject($value))->format('Y-m-d H:i:s');
-        }
-
-        // Maneja formatos con tiempo 'YYYY-MM-DD HH:MM:SS'
-        if (preg_match('/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/', $value)) {
-            try {
-                return Carbon::createFromFormat('Y-m-d H:i:s', $value)->format('Y-m-d H:i:s');
-            } catch (\Exception $e) {
-                Log::error('Fecha y hora inválida después de limpiar: ' . $value);
-                return null;
+        try {
+            // Si es un número (serial de Excel)
+            if (is_numeric($value)) {
+                $resultado = Carbon::instance(Date::excelToDateTimeObject($value))->format('Y-m-d');
+                return $resultado;
             }
-        }
 
-        // Maneja formatos solo de fecha 'YYYY-MM-DD'
-        if (preg_match('/\d{4}-\d{2}-\d{2}/', $value)) {
-            try {
-                return Carbon::createFromFormat('Y-m-d', $value)->format('Y-m-d');
-            } catch (\Exception $e) {
-                Log::error('Fecha inválida después de limpiar: ' . $value);
-                return null;
+            // Para el formato m/d/Y o m/d/Y H:i
+            if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})/', $value, $matches)) {
+                $mes = $matches[1];
+                $dia = $matches[2];
+                $anio = $matches[3];
+
+                $fecha = Carbon::createFromFormat('Y-m-d', sprintf('%s-%02d-%02d', $anio, $mes, $dia));
+                $resultado = $fecha->format('Y-m-d');
+
+                return $resultado;
             }
+
+            // Para otros formatos de fecha
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Error transformando fecha', [
+                'valor' => $value,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
-
-        // Maneja formatos 'd/m/Y' o 'd/m/y'
-        if (preg_match('/\d{1,2}\/\d{1,2}\/\d{2,4}/', $value)) {
-            try {
-                if (preg_match('/\d{1,2}\/\d{1,2}\/\d{2}$/', $value)) {
-                    return Carbon::createFromFormat('d/m/y', $value)->format('Y-m-d');
-                }
-
-                return Carbon::createFromFormat('d/m/Y', $value)->format('Y-m-d');
-            } catch (\Exception $e) {
-                Log::error('Fecha inválida después de limpiar: ' . $value);
-                return null;
-            }
-        }
-
-        Log::error('Formato de fecha desconocido: ' . $value);
-        return null;
     }
 
+    private function transformExcelDateWithTime($value)
+    {
 
-    private function cleanPatente($value): array|string|null
+        $value = $this->nullIfEmpty($value);
+
+        if (is_null($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        try {
+            // Si es un número (serial de Excel)
+            if (is_numeric($value)) {
+                $resultado = Carbon::instance(Date::excelToDateTimeObject($value))->format('Y-m-d H:i:s');
+                return $resultado;
+            }
+
+            // Para el formato m/d/Y H:i
+            if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/', $value, $matches)) {
+                $mes = $matches[1];
+                $dia = $matches[2];
+                $anio = $matches[3];
+                $hora = $matches[4];
+                $minuto = $matches[5];
+
+                $fechaHora = Carbon::create($anio, $mes, $dia, $hora, $minuto, 0);
+                $resultado = $fechaHora->format('Y-m-d H:i:s');
+
+                return $resultado;
+            }
+
+            // Si solo tenemos la fecha, intentamos con transformExcelDate y agregamos 00:00:00
+            $fecha = $this->transformExcelDate($value);
+            if ($fecha) {
+                $resultado = $fecha . ' 00:00:00';
+                return $resultado;
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Error transformando fecha con hora', [
+                'valor' => $value,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+    private function nullIfEmpty($value): ?string
+    {
+        if (is_null($value)) {
+            return null;
+        }
+        $value = trim((string)$value);
+        return $value === '' ? null : $value;
+    }
+
+    private function transformCoordinate($value): string
+    {
+        if (empty($value)) {
+            return "0";
+        }
+        return str_replace(',', '.', trim((string)$value));
+    }
+
+    private function cleanPatente($value): ?string
     {
         if (empty($value)) {
             return null;
         }
-        return str_replace([' ', '-'], '', trim($value));
+        return preg_replace('/[^A-Za-z0-9]/', '', trim((string)$value));
     }
 }

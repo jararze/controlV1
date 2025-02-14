@@ -14,16 +14,18 @@ class CardIndexComponent extends Component
     public $subtitle;
     public $descrption;
     public $href;
+    public $lista;
     /**
      * Create a new component instance.
      */
-    public function __construct($icon = 'ki-setting', $title = 'Matriz logistico', $subtitle = 'Default role', $descrption = null, $href = null)
+    public function __construct($icon = 'ki-setting', $title = 'Matriz logistico', $subtitle = 'Default role', $descrption = null, $href = null, $lista = null)
     {
         $this->icon = $icon;
         $this->title = $title;
         $this->subtitle = $subtitle;
         $this->descrption = $descrption;
         $this->href = $href;
+        $this->lista = $lista;
     }
 
     /**

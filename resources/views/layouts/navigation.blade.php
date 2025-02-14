@@ -13,13 +13,13 @@
                 <span class="tooltip">Dashboard</span>
             </a>
 
-{{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('argus.files.select') ? 'active' : '' }}"--}}
-{{--               data-tooltip="" data-tooltip-placement="right" href="{{ route('argus.files.select') }}">--}}
-{{--                <span class="menu-icon">--}}
-{{--                    <i class="ki-filled ki-profile-circle"></i>--}}
-{{--                </span>--}}
-{{--                <span class="tooltip">Profile</span>--}}
-{{--            </a>--}}
+            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('argus.files.select') ? 'active' : '' }}"
+               data-tooltip="" data-tooltip-placement="right" href="{{ route('argus.files.select') }}">
+                <span class="menu-icon">
+                    <i class="ki-filled ki-profile-circle"></i>
+                </span>
+                <span class="tooltip">Compare</span>
+            </a>
 
             <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('uploads.index') ? 'active' : '' }}"
                data-tooltip="" data-tooltip-placement="right" href="{{ route('uploads.index') }}">

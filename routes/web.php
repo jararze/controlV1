@@ -39,6 +39,10 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('/uploads/index/matrix/{batch_id}/work', [UploadsController::class, 'workWith'])->name('uploads.index.matrix.work');
 
 
+    Route::get('/uploads/index/truck/work', [UploadsController::class, 'workWith'])->name('uploads.index.truck.work');
+    Route::get('/uploads/index/truck/destroy', [UploadsController::class, 'workWith'])->name('uploads.index.truck.destroy');
+
+
     Route::get('/work/matrix/{patente}/call', [CallsController::class, 'registerCall'])->name('work.matrix.call');
     Route::post('/work/matrix/call/save', [CallsController::class, 'saveCall'])->name('work.matrix.call.save');
 

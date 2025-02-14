@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Imports\ArgusPlanImport;
 use App\Imports\MatrixPlanImport;
 use App\Imports\TruckPlanImport;
+use App\Jobs\ProcessArgusFile;
+use App\Jobs\ProcessMatrixFile;
 use App\Jobs\ProcessTruckFile;
 use App\Models\Argus;
 use App\Models\BatchCall;
@@ -14,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -26,36 +29,33 @@ class UploadsController extends Controller
 
     public function postMatriz(Request $request)
     {
-        $request->validate([
-            'archivo' => 'required|file|mimes:xlsx,xls,csv|max:2048',
+
+
+        // Validar el request
+        $validator = Validator::make($request->all(), [
+            'archivo' => 'required|file|mimes:xlsx,xls,csv|max:15240',
             'fecha_hora' => 'required|date',
         ]);
 
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+
         try {
-            // Guardar archivo en almacenamiento público y obtener la ruta
             $rutaArchivo = $request->file('archivo')->store('archivos', 'public');
-
-            // Procesar fecha/hora
             $fechaHora = $request->input('fecha_hora');
-
-            // Generar un ID único para el batch de importación
-            $batchId = Str::uuid();
-
-            // Obtener el nombre original del archivo
+            $batchId = (string) Str::uuid();
             $fileName = $request->file('archivo')->getClientOriginalName();
 
-            // Importar los datos usando Maatwebsite Excel y la clase ShipmentPlanImport
-            Excel::import(new MatrixPlanImport($fileName, $batchId, $fechaHora), $request->file('archivo'));
-
-            // Registrar un mensaje de éxito en los logs
-            Log::info('Archivo importado correctamente con batch ID: '.$batchId);
+            ProcessMatrixFile::dispatch($rutaArchivo, $batchId, $fechaHora, $fileName);
 
             // Redirigir con un mensaje de éxito
             return back()->with('success', 'Archivo subido e importado exitosamente con fecha y hora: '.$fechaHora);
 
         } catch (\Exception $e) {
             // Registrar el error en los logs
-            Log::error('Error al importar el archivo: '.$e->getMessage());
+            Log::error('Error al importar el archivo', ['error' => $e->getMessage()]);
 
             // Redirigir con un mensaje de error
             return redirect()->back()->with('error', 'La hoja "BASE" no fue encontrada en el archivo Excel.');
@@ -181,8 +181,6 @@ class UploadsController extends Controller
 
     public function postTruck(Request $request)
     {
-//        Log::info('MIME Type:', ['mime' => $request->file('archivo')->getMimeType()]);
-//        Log::info('Original Extension:', ['extension' => $request->file('archivo')->getClientOriginalExtension()]);
 
         $request->validate([
             'archivo' => 'required|file|mimes:csv,txt,text/plain,xlsx|max:15240',
@@ -191,21 +189,6 @@ class UploadsController extends Controller
 
         try {
 
-            $fechaMaxima = DB::table('trucks')->max('fecha_salida'); // Obtiene la fecha máxima
-            $ayer = Carbon::yesterday()->toDateString(); // Fecha de ayer
-
-            if ($fechaMaxima === $ayer) {
-                return back()->with('error', 'Ya se han cargado datos hasta la fecha de ayer: ' . $ayer);
-            }
-
-//            DB::transaction(function () use ($request) {
-//                Truck::query()->update(['final_status' => 0]);
-//                $fechaHora = $request->input('fecha_hora');
-//                $batchId = Str::uuid();
-//                $fileName = $request->file('archivo')->getClientOriginalName();
-//                Excel::import(new TruckPlanImport($fileName, $batchId, $fechaHora), $request->file('archivo'));
-//                Log::info('Archivo importado correctamente con batch ID: '.$batchId);
-//            });
 
             $file = $request->file('archivo');
 
@@ -216,10 +199,8 @@ class UploadsController extends Controller
                 mkdir($destinationPath, 0777, true);
             }
 
-//            Log::info('Attempting to store file in: ' . storage_path('app/uploads/temp/' . $file->getClientOriginalName()));
             $file->move($destinationPath, $fileName);
             $filePath = 'uploads/temp/' . $fileName;
-//            Log::info('File stored successfully at: ' . storage_path('app/' . $filePath));
             $batchId = (string) Str::uuid();
             $fechaHora = $request->input('fecha_hora');
 
@@ -235,10 +216,11 @@ class UploadsController extends Controller
 
     public function listTruck()
     {
-        $result = Truck::select('batch_id', 'file_name', DB::raw('MAX(fecha_salida) as fecha_registro'), 'final_status')
-            ->groupBy('batch_id', 'file_name','final_status')
-            ->orderBy('final_status', 'desc')
-            ->get();
+        $result = Truck::select(
+            DB::raw('MAX(fecha_salida) as fecha_registro'),
+            DB::raw('MAX(updated_at) as updated_at'),
+            DB::raw('MAX(created_at) as created_at'))
+            ->first();
 
         return view('uploads.truck.list', compact('result'));
     }
@@ -258,21 +240,13 @@ class UploadsController extends Controller
 
         try {
 
-            $fechaMaxima = DB::table('arguses')->max('hora_alarma'); // Obtiene la fecha máxima
-            $ayer = Carbon::yesterday()->toDateString(); // Fecha de ayer
+            $rutaArchivo = $request->file('archivo')->store('archivos', 'public');
+            $fechaHora = $request->input('fecha_hora');
+            $batchId = (string) Str::uuid();
+            $fileName = $request->file('archivo')->getClientOriginalName();
 
-            if ($fechaMaxima === $ayer) {
-                return back()->with('error', 'Ya se han cargado datos hasta la fecha de ayer: ' . $ayer);
-            }
-
-            DB::transaction(function () use ($request) {
-                Argus::query()->update(['final_status' => 0]);
-                $fechaHora = $request->input('fecha_hora');
-                $batchId = Str::uuid();
-                $fileName = $request->file('archivo')->getClientOriginalName();
-                Excel::import(new ArgusPlanImport($fileName, $batchId, $fechaHora), $request->file('archivo'));
-                Log::info('Archivo importado correctamente con batch ID: '.$batchId);
-            });
+            // Despachar el job
+            ProcessArgusFile::dispatch($rutaArchivo, $batchId, $fechaHora, $fileName);
 
             return back()->with('success', 'Archivo subido e importado exitosamente');
 

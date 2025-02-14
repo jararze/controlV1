@@ -15,11 +15,11 @@ class ArgusController extends Controller
 {
     public function selectFiles()
     {
-        $truckFiles = Truck::select('batch_id', 'file_name', DB::raw('MAX(fecha_salida) as fecha_registro'),
-            'final_status')
-            ->groupBy('batch_id', 'file_name', 'final_status')
-            ->orderBy('final_status', 'desc')
-            ->get();
+        $truckFiles = Truck::select(
+            DB::raw('MAX(fecha_salida) as fecha_registro'),
+            DB::raw('MAX(updated_at) as updated_at'),
+            DB::raw('MAX(created_at) as created_at'))
+            ->first();
         $argusFiles = Argus::select('batch_id', 'file_name', DB::raw('MAX(hora_alarma) as fecha_registro'),
             'final_status')
             ->groupBy('batch_id', 'file_name', 'final_status')
@@ -34,106 +34,161 @@ class ArgusController extends Controller
         ini_set('max_execution_time', 1900);
         ini_set('memory_limit', '10G');
 
-
         $request->validate([
-            'truck_file' => 'required|exists:trucks,batch_id',
-            'argus_file' => 'required|exists:arguses,batch_id',
+            'argus_file' => [
+                'required',
+                'exists:arguses,batch_id',
+                function ($attribute, $value, $fail) {
+                    $count = Argus::where('batch_id', $value)->count();
+                    if ($count === 0) {
+                        $fail('No hay registros en Argus para el batch seleccionado.');
+                    }
+                }
+            ],
         ]);
 
-        $truckFile = Truck::where('batch_id', $request->input('truck_file'))->get();
-        $argusFile = Argus::where('batch_id', $request->input('argus_file'))->get();
+        // Obtener datos con selección específica de columnas
+        $truckData = Truck::select([
+            'patente',
+            'fecha_salida',
+            'fecha_llegada',
+            'hora_salida',
+            'hora_llegada',
+            'fecha_registro'
+        ])->get();
 
-        $maxFechaSalida = $truckFile->max('fecha_salida');
-        $maxDiaArgus = $argusFile->max('dia');
+        $argusData = Argus::select([
+            'patente',
+            'hora_alarma',
+            'dia',
+            'evento',
+            'motorista',
+            'velocidade',
+            'latitude',
+            'longitude',
+            'operacion',
+            'batch_id'
+        ])
+            ->where('batch_id', $request->input('argus_file'))
+            ->get();
 
-        // Validar que la fecha máxima de Truck sea igual o mayor que la de Argus
+        // Validar fechas máximas
+        $maxFechaSalida = $truckData->max('fecha_salida');
+        $maxDiaArgus = $argusData->max('dia');
+
         if (Carbon::parse($maxFechaSalida)->lt(Carbon::parse($maxDiaArgus))) {
             return back()->with('error',
                 'La fecha máxima de Truck ('.$maxFechaSalida.') debe ser igual o mayor que la fecha máxima de Argus ('.$maxDiaArgus.').');
         }
 
-        $result = [];
-        foreach ($argusFile as $argusRow) {
+        // Pre-procesar y indexar los datos de truck
+        $trucksIndexed = $truckData->groupBy('patente')->map(function ($trucks) {
+            return $trucks->map(function ($truck) {
+                try {
+                    // Validación de fecha de salida como en el original
+                    $fechaSalida = $truck->fecha_salida && Carbon::parse($truck->fecha_salida)->toDateString() !== '1999-11-30'
+                        ? trim($truck->fecha_salida)
+                        : $truck->fecha_registro;
 
-            $matchingTrucks = $truckFile->where('patente', $argusRow->patente);
+                    $fechaLlegada = $truck->fecha_llegada && Carbon::parse($truck->fecha_llegada)->toDateString() !== '1999-11-30'
+                        ? trim($truck->fecha_llegada)
+                        : $truck->fecha_registro;
 
-            if ($matchingTrucks->isNotEmpty()) {
+                    $horaSalida = $truck->hora_salida ? trim($truck->hora_salida) : null;
+                    $horaLlegada = $truck->hora_llegada ? trim($truck->hora_llegada) : null;
 
-                $validMatch = false;
-
-                foreach ($matchingTrucks as $matchingTruck) {
-                    $fechaSalida = $matchingTruck->fecha_salida && Carbon::parse($matchingTruck->fecha_salida)->toDateString() !== '1999-11-30'
-                        ? trim($matchingTruck->fecha_salida)
-                        : $matchingTruck->fecha_registro;
-
-                    $fechaLlegada = $matchingTruck->fecha_llegada && Carbon::parse($matchingTruck->fecha_llegada)->toDateString() !== '1999-11-30'
-                        ? trim($matchingTruck->fecha_llegada)
-                        : $matchingTruck->fecha_registro;
-
-                    $horaSalida = $matchingTruck->hora_salida ? trim($matchingTruck->hora_salida) : null;
-                    $horaLlegada = $matchingTruck->hora_llegada ? trim($matchingTruck->hora_llegada) : null;
-
+                    // Restar una hora y ajustar fecha si es necesario
                     if ($horaSalida) {
-                        $horaSalidaCarbon = Carbon::createFromTimeString($horaSalida)->subHour();
-                        if ($horaSalidaCarbon->hour > Carbon::createFromTimeString($horaSalida)->hour) {
+                        $horaSalidaCarbon = Carbon::createFromTimeString($horaSalida);
+                        $horaOriginal = $horaSalidaCarbon->hour;
+                        $horaSalidaCarbon->subHour();
+
+                        // Si al restar la hora pasamos a un día anterior
+                        if ($horaSalidaCarbon->hour > $horaOriginal) {
                             $fechaSalida = Carbon::parse($fechaSalida)->subDay()->toDateString();
                         }
-                        $horaSalida = $horaSalidaCarbon->toTimeString();
+                        $horaSalida = $horaSalidaCarbon->format('H:i:s');
                     }
 
                     if ($horaLlegada) {
-                        $horaLlegadaCarbon = Carbon::createFromTimeString($horaLlegada)->subHour();
-                        if ($horaLlegadaCarbon->hour > Carbon::createFromTimeString($horaLlegada)->hour) {
+                        $horaLlegadaCarbon = Carbon::createFromTimeString($horaLlegada);
+                        $horaOriginal = $horaLlegadaCarbon->hour;
+                        $horaLlegadaCarbon->subHour();
+
+                        // Si al restar la hora pasamos a un día anterior
+                        if ($horaLlegadaCarbon->hour > $horaOriginal) {
                             $fechaLlegada = Carbon::parse($fechaLlegada)->subDay()->toDateString();
                         }
-                        $horaLlegada = $horaLlegadaCarbon->toTimeString();
+                        $horaLlegada = $horaLlegadaCarbon->format('H:i:s');
                     }
 
+                    // Crear objetos Carbon para las comparaciones
                     $fechaHoraSalida = null;
                     $fechaHoraLlegada = null;
 
-                    try {
-                        if ($fechaSalida && $horaSalida) {
-                            $fechaHoraSalida = Carbon::parse($fechaSalida)->setTimeFromTimeString($horaSalida);
-                        } elseif ($fechaSalida) {
-                            $fechaHoraSalida = Carbon::parse($fechaSalida);
-                        }
-                    } catch (\Exception $e) {
-                        Log::error("Error al procesar fechaHoraSalida: ".$e->getMessage());
+                    if ($fechaSalida && $horaSalida) {
+                        $fechaHoraSalida = Carbon::parse($fechaSalida)->setTimeFromTimeString($horaSalida);
+                    } elseif ($fechaSalida) {
+                        $fechaHoraSalida = Carbon::parse($fechaSalida);
                     }
 
-                    try {
-                        if ($fechaLlegada && $horaLlegada) {
-                            $fechaHoraLlegada = Carbon::parse($fechaLlegada)->setTimeFromTimeString($horaLlegada);
-                        } elseif ($fechaLlegada) {
-                            $fechaHoraLlegada = Carbon::parse($fechaLlegada);
-                        }
-                    } catch (\Exception $e) {
-                        Log::error("Error al procesar fechaHoraLlegada: ".$e->getMessage());
+                    if ($fechaLlegada && $horaLlegada) {
+                        $fechaHoraLlegada = Carbon::parse($fechaLlegada)->setTimeFromTimeString($horaLlegada);
+                    } elseif ($fechaLlegada) {
+                        $fechaHoraLlegada = Carbon::parse($fechaLlegada);
                     }
 
-                    if ($fechaHoraSalida && $fechaHoraLlegada) {
-                        try {
-                            $horaAlarma = Carbon::parse($argusRow->hora_alarma);
-                            if ($horaAlarma->between($fechaHoraSalida, $fechaHoraLlegada)) {
-                                $validMatch = true;
-                                break; // No es necesario seguir buscando en más coincidencias
-                            }
-                        } catch (\Exception $e) {
-                            Log::error("Error al procesar hora de alarma: ".$e->getMessage());
-                        }
-                    }
+                    return [
+                        'inicio' => $fechaHoraSalida,
+                        'fin' => $fechaHoraLlegada,
+                        'datos_originales' => [
+                            'fecha_salida' => $fechaSalida,
+                            'hora_salida' => $horaSalida,
+                            'fecha_llegada' => $fechaLlegada,
+                            'hora_llegada' => $horaLlegada
+                        ]
+                    ];
+
+                } catch (\Exception $e) {
+                    Log::error("Error procesando fechas para patente {$truck->patente}: " . $e->getMessage());
+                    return null;
                 }
+            })->filter();
+        });
 
-                if ($validMatch) {
-                    continue;
+        // Procesar registros de Argus
+        $result = collect();
+        foreach ($argusData as $argusRow) {
+            $matchFound = false;
+
+            if (isset($trucksIndexed[$argusRow->patente])) {
+                try {
+                    $horaAlarma = Carbon::parse($argusRow->hora_alarma);
+
+                    foreach ($trucksIndexed[$argusRow->patente] as $truck) {
+                        if ($truck['inicio'] &&
+                            $truck['fin'] &&
+                            $horaAlarma->between($truck['inicio'], $truck['fin'])) {
+                            $matchFound = true;
+                            break;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error("Error procesando hora de alarma para Argus ID {$argusRow->id}: " . $e->getMessage());
                 }
             }
 
-            $result[] = $argusRow;
+            if (!$matchFound) {
+                $result->push($argusRow);
+            }
         }
+
         session(['excel_result' => $result]);
-        return view('argus.compare', compact('result', 'truckFile', 'argusFile'));
+        return view('argus.compare', [
+            'result' => $result,
+            'truckFile' => $truckData,
+            'argusFile' => $argusData
+        ]);
     }
 
     public function downloadExcel(Request $request)

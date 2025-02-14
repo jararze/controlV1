@@ -70,27 +70,25 @@
                                 </tr>
                                 </thead>
                                 <tbody>
-                                @foreach($truckFiles as $truck)
                                     <tr>
                                         <td>
-                                            <input type="radio" name="truck_file" value="{{ $truck->batch_id }}"
+                                            <input type="radio" name="truck_file" value=""
                                                    required>
                                         </td>
-                                        <td>{{ $truck->file_name }}</td>
-                                        <td>{{ $truck->fecha_registro ? $truck->fecha_registro->format('Y-m-d') : 'No disponible' }}</td>
-                                        <td>{{ $truck->fecha_registro ? $truck->fecha_registro->diffForHumans() : 'No disponible' }}</td>
+                                        <td>Archivo Truck</td>
+                                        <td>{{ $truckFiles->fecha_registro ? $truckFiles->fecha_registro->format('Y-m-d') : 'No disponible' }}</td>
+                                        <td>{{ $truckFiles->fecha_registro ? $truckFiles->fecha_registro->diffForHumans() : 'No disponible' }}</td>
                                         <td>
-                                            {!! $truck->final_status == 1
-                                                ? '<span class="badge badge-success badge-outline rounded-[30px]">
-                                                     <span class="size-1.5 rounded-full bg-success me-1.5"></span> Activo
-                                                   </span>'
-                                                : '<span class="badge badge-danger badge-outline rounded-[30px]">
-                                                     <span class="size-1.5 rounded-full bg-danger me-1.5"></span> Inactivo
-                                                   </span>'
-                                            !!}
+                                            {!! $truckFiles->updated_at->isToday()
+                                                                                        ? '<span class="badge badge-success badge-outline rounded-[30px]">
+                                                                                             <span class="size-1.5 rounded-full bg-success me-1.5"></span> Truck actualizado a hoy
+                                                                                           </span>'
+                                                                                        : '<span class="badge badge-danger badge-outline rounded-[30px]">
+                                                                                             <span class="size-1.5 rounded-full bg-danger me-1.5"></span> Truck no esta actualizado!
+                                                                                           </span>'
+                                                                                    !!}
                                         </td>
                                     </tr>
-                                @endforeach
                                 </tbody>
                             </table>
                         </div>
