@@ -17,6 +17,10 @@ class ProcessTruckFile implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $tries = 3;  // Allow retries
+    public $timeout = 3600;  // 1 hour timeout
+    public $maxExceptions = 3;
+
     protected $filePath;
 
     protected $fileName;
@@ -40,6 +44,8 @@ class ProcessTruckFile implements ShouldQueue
      */
     public function handle(): void
     {
+
+        ini_set('memory_limit', '1024M');
 
         try {
             $absolutePath = storage_path('app/' . $this->filePath);

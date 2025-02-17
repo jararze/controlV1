@@ -67,7 +67,8 @@ class ArgusController extends Controller
             'latitude',
             'longitude',
             'operacion',
-            'batch_id'
+            'batch_id',
+            'event_id'
         ])
             ->where('batch_id', $request->input('argus_file'))
             ->get();
