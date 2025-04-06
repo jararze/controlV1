@@ -191,19 +191,17 @@ class UploadsController extends Controller
             $file = $request->file('archivo');
             $fileName = $file->getClientOriginalName();
 
-            // Asegurarse de que el directorio existe
-            $path = storage_path('app/uploads/temp');
-            if (!file_exists($path)) {
-                mkdir($path, 0777, true);
-            }
-
-            // Guardar directamente como en tu código original
-            $file->move($path, $fileName);
-            $filePath = 'uploads/temp/' . $fileName;
+            // Usar Storage::disk() en lugar de mover el archivo directamente
+            $filePath = Storage::disk('local')->putFileAs(
+                'uploads/temp',
+                $file,
+                $fileName
+            );
 
             $batchId = (string) Str::uuid();
             $fechaHora = $request->input('fecha_hora');
 
+            // Asegúrate de pasar la ruta correcta sin 'app/'
             ProcessTruckFile::dispatch($filePath, $batchId, $fechaHora, $fileName);
 
             return back()->with('success', 'Archivo subido correctamente. La importación se está procesando en segundo plano.');
