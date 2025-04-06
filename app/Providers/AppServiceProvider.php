@@ -3,15 +3,21 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Services\JobStatusChecker;
 
 class AppServiceProvider extends ServiceProvider
 {
     /**
      * Register any application services.
      */
-    public function register(): void
+    public function register()
     {
-        //
+        // Registrar JobStatusChecker como singleton
+        $this->app->singleton(JobStatusChecker::class, function ($app) {
+            return new JobStatusChecker();
+        });
+
+        // Cualquier otro código que ya tengas aquí...
     }
 
     /**

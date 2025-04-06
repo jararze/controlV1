@@ -14,10 +14,11 @@ use Maatwebsite\Excel\Concerns\SkipsOnError;
 use Maatwebsite\Excel\Concerns\SkipsErrors;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Concerns\Importable;
 
 class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, WithBatchInserts, SkipsOnError
 {
-    use SkipsErrors;
+    use SkipsErrors, Importable;
 
     protected $fileName;
     protected $originalBatchId;
@@ -28,6 +29,37 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
         5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto',
         9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'
     ];
+
+    protected $onChunkReadCallback = null;
+    protected $processedRows = 0;
+
+    /**
+     * Set callback to be called during import with progress information
+     *
+     * @param callable $callback
+     * @return $this
+     */
+    public function onChunkRead(callable $callback)
+    {
+        $this->onChunkReadCallback = $callback;
+        return $this;
+    }
+
+    /**
+     * This method is called after each chunk is read
+     *
+     * @param array $chunk
+     */
+    public function chunkRead(array $chunk)
+    {
+        // Aumentar contador de filas procesadas
+        $this->processedRows += count($chunk);
+
+        // Llamar al callback si está definido
+        if (is_callable($this->onChunkReadCallback)) {
+            call_user_func($this->onChunkReadCallback, $this->processedRows);
+        }
+    }
 
     public function __construct($fileName, $batchId, $fechaHora)
     {
@@ -58,14 +90,8 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             $fechaOriginal = $row['dia'] ?? null;
             $horaOriginal = $row['hora_alarme'] ?? null;
 
-            Log::info('Procesando fechas', [
-                'fecha_original' => $fechaOriginal,
-                'hora_original' => $horaOriginal,
-                'row' => $row
-            ]);
 
             if (!$fechaOriginal) {
-                Log::warning('Fecha no encontrada', ['row' => $row]);
                 return null;
             }
 
@@ -73,12 +99,6 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             $dia = $this->transformExcelDate($fechaOriginal);
             $hora_alarma = $this->transformExcelDateWithTime($horaOriginal);
 
-            Log::info('Fechas transformadas', [
-                'fecha_original' => $fechaOriginal,
-                'fecha_transformada' => $dia,
-                'hora_original' => $horaOriginal,
-                'hora_transformada' => $hora_alarma
-            ]);
 
             if (!$dia) {
                 Log::error('No se pudo transformar la fecha', [

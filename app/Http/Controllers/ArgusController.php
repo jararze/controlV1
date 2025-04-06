@@ -10,16 +10,31 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\JobStatusChecker;
 
 class ArgusController extends Controller
 {
+    protected $jobStatusChecker;
+
+    public function __construct(JobStatusChecker $jobStatusChecker)
+    {
+        $this->jobStatusChecker = $jobStatusChecker;
+    }
     public function selectFiles()
     {
+        // Verificar si hay jobs procesando archivos
+        if ($this->jobStatusChecker->areJobsRunning()) {
+            // Si hay jobs corriendo, mostrar la vista con mensaje de espera
+            return view('argus.processing');
+        }
+
+        // Continuar con el código original si no hay jobs corriendo
         $truckFiles = Truck::select(
             DB::raw('MAX(fecha_salida) as fecha_registro'),
             DB::raw('MAX(updated_at) as updated_at'),
             DB::raw('MAX(created_at) as created_at'))
             ->first();
+
         $argusFiles = Argus::select('batch_id', 'file_name', DB::raw('MAX(hora_alarma) as fecha_registro'),
             'final_status')
             ->groupBy('batch_id', 'file_name', 'final_status')

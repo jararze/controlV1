@@ -16,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
@@ -181,36 +182,37 @@ class UploadsController extends Controller
 
     public function postTruck(Request $request)
     {
-
         $request->validate([
             'archivo' => 'required|file|mimes:csv,txt,text/plain,xlsx|max:15240',
             'fecha_hora' => 'required|date',
         ]);
 
         try {
-
-
             $file = $request->file('archivo');
+            $fileName = $file->getClientOriginalName();
 
-            $destinationPath = storage_path('app/uploads/temp'); // Define the storage path
-            $fileName = $file->getClientOriginalName(); // Get the original file name
-
-            if (!file_exists($destinationPath)) {
-                mkdir($destinationPath, 0777, true);
+            // Asegurarse de que el directorio existe
+            $path = storage_path('app/uploads/temp');
+            if (!file_exists($path)) {
+                mkdir($path, 0777, true);
             }
 
-            $file->move($destinationPath, $fileName);
+            // Guardar directamente como en tu código original
+            $file->move($path, $fileName);
             $filePath = 'uploads/temp/' . $fileName;
+
             $batchId = (string) Str::uuid();
             $fechaHora = $request->input('fecha_hora');
 
             ProcessTruckFile::dispatch($filePath, $batchId, $fechaHora, $fileName);
 
-            return back()->with('success', 'Archivo subido e importado exitosamente');
-
+            return back()->with('success', 'Archivo subido correctamente. La importación se está procesando en segundo plano.');
         } catch (\Exception $e) {
-            Log::error('Error al importar el archivo: '.$e->getMessage());
-            return redirect()->back()->with('error', 'Error:' . $e->getMessage());
+            Log::error('Error al importar el archivo: '.$e->getMessage(), [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return redirect()->back()->with('error', 'Error al procesar el archivo: ' . $e->getMessage());
         }
     }
 
