@@ -77,13 +77,13 @@ class TruckPlanImport implements ToModel, WithHeadingRow, WithStartRow, WithEven
     public function chunkSize(): int
     {
         // Reducido para evitar problemas de memoria
-        return 100;
+        return 2000;
     }
 
     public function batchSize(): int
     {
         // Reducido para evitar sobrecargar la base de datos
-        return 100;
+        return 2000;
     }
 
     public function startRow(): int

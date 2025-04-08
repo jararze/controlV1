@@ -28,7 +28,7 @@ class ProcessTruckFile implements ShouldQueue
     public $maxExceptions = 3;
 
     // Usar un valor más bajo para evitar problemas de memoria y timeouts de MySQL
-    protected $batchSize = 100;
+    protected $batchSize = 2000;
 
     protected $filePath;
     protected $fileName;
@@ -92,7 +92,7 @@ class ProcessTruckFile implements ShouldQueue
 
             // Determinar si es un archivo grande
             $fileSize = filesize($absolutePath);
-            $isLargeFile = $fileSize > 5 * 1024 * 1024; // Si es mayor a 5MB
+            $isLargeFile = $fileSize > 3 * 1024 * 1024; // Si es mayor a 5MB
             $extension = strtolower(pathinfo($this->fileName, PATHINFO_EXTENSION));
 
             // Si es un CSV grande, usamos procesamiento manual optimizado
