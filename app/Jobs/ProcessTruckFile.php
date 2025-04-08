@@ -28,7 +28,7 @@ class ProcessTruckFile implements ShouldQueue
     public $maxExceptions = 3;
 
     // Usar un valor más bajo para evitar problemas de memoria y timeouts de MySQL
-    protected $batchSize = 1500;
+    protected $batchSize = 2000;
 
     protected $filePath;
     protected $fileName;
