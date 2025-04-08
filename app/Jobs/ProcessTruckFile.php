@@ -62,6 +62,175 @@ class ProcessTruckFile implements ShouldQueue
         $this->fileName = $fileName;
     }
 
+    private function processRecordSanitized($record, &$processedRegistries)
+    {
+        // Obtener valores clave usando mapeo flexible
+        $planilla = $this->getValueFromRecord($record, 'planilla');
+        $patente = $this->getValueFromRecord($record, 'patente');
+
+        // Validación básica
+        if (empty($planilla) || empty($patente)) {
+            return null;
+        }
+
+        // Limpiar patente
+        $patente = $this->cleanPatente($patente);
+        if (empty($patente)) {
+            return null;
+        }
+
+        // Clave única para evitar duplicados
+        $codProducto = $this->getValueFromRecord($record, 'cod_prod');
+        $uniqueKey = $planilla . '_' . $patente . '_' . $codProducto;
+
+        // Omitir si ya fue procesado
+        if (isset($processedRegistries[$uniqueKey])) {
+            return null;
+        }
+
+        // Marcar como procesado
+        $processedRegistries[$uniqueKey] = true;
+
+        // Transformar fechas
+        $fechaSalida = $this->transformDate($this->getValueFromRecord($record, 'fecha_salida'));
+        $fechaLlegada = $this->transformDate($this->getValueFromRecord($record, 'fecha_entrada'));
+        $fechaOrden = $this->transformDate($this->getValueFromRecord($record, 'fecha_orden'));
+
+        // SANITIZAR CAMPOS DE TEXTO para evitar problemas de codificación
+        $sanitizeFn = function($value) {
+            if (empty($value)) {
+                return null;
+            }
+
+            // Convertir caracteres especiales a ASCII o reemplazarlos
+            $value = str_replace('Ñ', 'N', $value);
+            $value = str_replace('ñ', 'n', $value);
+            $value = str_replace('á', 'a', $value);
+            $value = str_replace('é', 'e', $value);
+            $value = str_replace('í', 'i', $value);
+            $value = str_replace('ó', 'o', $value);
+            $value = str_replace('ú', 'u', $value);
+            $value = str_replace('ü', 'u', $value);
+            $value = str_replace('Á', 'A', $value);
+            $value = str_replace('É', 'E', $value);
+            $value = str_replace('Í', 'I', $value);
+            $value = str_replace('Ó', 'O', $value);
+            $value = str_replace('Ú', 'U', $value);
+            $value = str_replace('Ü', 'U', $value);
+
+            // Eliminar cualquier otro carácter no ASCII/no imprimible
+            $value = preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $value);
+
+            return trim($value);
+        };
+
+        // Preparar datos para inserción/actualización con sanitización
+        return [
+            'cod' => $this->nullIfEmpty($this->getValueFromRecord($record, 'cod_ori')),
+            'deposito_origen' => $sanitizeFn($this->getValueFromRecord($record, 'deposito_origen')),
+            'cod_destino' => $this->nullIfEmpty($this->getValueFromRecord($record, 'cod_des')),
+            'deposito_destino' => $sanitizeFn($this->getValueFromRecord($record, 'deposito_destino')),
+            'planilla' => $this->nullIfEmpty($planilla),
+            'flete' => $this->nullIfEmpty($this->getValueFromRecord($record, 'flete')),
+            'nombre_fletero' => $sanitizeFn($this->getValueFromRecord($record, 'nombre_fletero')),
+            'camion' => $this->nullIfEmpty($this->getValueFromRecord($record, 'cam')),
+            'patente' => $patente,
+            'fecha_salida' => $fechaSalida,
+            'hora_salida' => $this->nullIfEmpty($this->getValueFromRecord($record, 'hora_salida')),
+            'fecha_llegada' => $fechaLlegada,
+            'hora_llegada' => $this->nullIfEmpty($this->getValueFromRecord($record, 'hora_entrada')),
+            'diferencia_horas' => $this->nullIfEmpty($this->getValueFromRecord($record, 'diferencia_en_horas')),
+            'distancia' => is_numeric($this->getValueFromRecord($record, 'dist')) ?
+                $this->getValueFromRecord($record, 'dist') : null,
+            'categoria_flete' => $sanitizeFn($this->getValueFromRecord($record, 'cat_flete')),
+            'cierre' => $this->nullIfEmpty($this->getValueFromRecord($record, 'cierre')),
+            'status' => $sanitizeFn($this->getValueFromRecord($record, 'status')),
+            'puntaje' => is_numeric($this->getValueFromRecord($record, 'ptaje_paleta')) ?
+                $this->getValueFromRecord($record, 'ptaje_paleta') : null,
+            'tarifa' => is_numeric($this->getValueFromRecord($record, 'tarif_adic')) ?
+                $this->getValueFromRecord($record, 'tarif_adic') : null,
+            'cod_producto' => $this->nullIfEmpty($codProducto),
+            'producto' => $sanitizeFn($this->getValueFromRecord($record, 'producto')),
+            'salida' => is_numeric($this->getValueFromRecord($record, 'sal')) ?
+                $this->getValueFromRecord($record, 'sal') : null,
+            'entrada' => is_numeric($this->getValueFromRecord($record, 'ent')) ?
+                $this->getValueFromRecord($record, 'ent') : null,
+            'valor_producto' => is_numeric($this->getValueFromRecord($record, 'valor_por_producto')) ?
+                $this->getValueFromRecord($record, 'valor_por_producto') : null,
+            'variedad' => $sanitizeFn($this->getValueFromRecord($record, 'variedad')),
+            'linea' => $sanitizeFn($this->getValueFromRecord($record, 'linea')),
+            'tipo' => $sanitizeFn($this->getValueFromRecord($record, 'tip_ord')),
+            'numero_orden' => $this->nullIfEmpty($this->getValueFromRecord($record, 'numero_orden')),
+            'fecha_orden' => $fechaOrden,
+            'batch_id' => $this->batchId,
+            'file_name' => $this->fileName,
+            'fecha_registro' => $this->fechaHora,
+            'final_status' => "1",
+        ];
+    }
+
+    // Función para crear un archivo CSV limpio (reemplazar la existente)
+    private function createCleanedCsvFile($filePath)
+    {
+        try {
+            // Analizar la estructura del archivo para detectar el delimitador
+            $structure = $this->analyzeCSVStructure($filePath);
+            $delimiter = $structure['delimiter'];
+
+            // Abrir el archivo original
+            $handle = fopen($filePath, 'r');
+            if ($handle === false) {
+                return null;
+            }
+
+            // Crear archivo temporal
+            $tempFile = tempnam(sys_get_temp_dir(), 'csv_clean');
+            $tempHandle = fopen($tempFile, 'w');
+
+            // Leer y limpiar cada línea
+            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+                // Limpiar caracteres especiales y valores nulos
+                $cleanRow = array_map(function($cell) {
+                    // Convertir valores null a string vacío
+                    if ($cell === null) return '';
+
+                    // Reemplazar caracteres problemáticos
+                    $cell = str_replace('Ñ', 'N', $cell);
+                    $cell = str_replace('ñ', 'n', $cell);
+                    // Acentos
+                    $cell = str_replace(['á','é','í','ó','ú','Á','É','Í','Ó','Ú'],
+                        ['a','e','i','o','u','A','E','I','O','U'], $cell);
+
+                    // Eliminar caracteres de control y espacios al inicio/fin
+                    $clean = trim(preg_replace('/[\x00-\x1F\x7F-\xFF]/', '', $cell));
+                    return $clean;
+                }, $row);
+
+                // Escribir la fila limpia
+                fputcsv($tempHandle, $cleanRow, ','); // Usamos coma como delimitador estándar
+            }
+
+            // Cerrar los archivos
+            fclose($handle);
+            fclose($tempHandle);
+
+            return $tempFile;
+
+        } catch (\Exception $e) {
+            Log::warning('Error al crear CSV limpio: ' . $e->getMessage());
+
+            // Cerrar los manejadores si están abiertos
+            if (isset($handle) && is_resource($handle)) {
+                fclose($handle);
+            }
+            if (isset($tempHandle) && is_resource($tempHandle)) {
+                fclose($tempHandle);
+            }
+
+            return null;
+        }
+    }
+
     /**
      * Execute the job.
      * @throws \Exception
@@ -243,62 +412,7 @@ class ProcessTruckFile implements ShouldQueue
         }
     }
 
-    /**
-     * Crea un archivo CSV limpio a partir del original para evitar problemas de formato
-     */
-    private function createCleanedCsvFile($filePath)
-    {
-        try {
-            // Analizar la estructura del archivo para detectar el delimitador
-            $structure = $this->analyzeCSVStructure($filePath);
-            $delimiter = $structure['delimiter'];
 
-            // Abrir el archivo original
-            $handle = fopen($filePath, 'r');
-            if ($handle === false) {
-                return null;
-            }
-
-            // Crear archivo temporal
-            $tempFile = tempnam(sys_get_temp_dir(), 'csv_clean');
-            $tempHandle = fopen($tempFile, 'w');
-
-            // Leer y limpiar cada línea
-            while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-                // Eliminar espacios en blanco y caracteres nulos
-                $cleanRow = array_map(function($cell) {
-                    // Convertir valores null a string vacío
-                    if ($cell === null) return '';
-
-                    // Eliminar caracteres de control y espacios al inicio/fin
-                    $clean = trim(preg_replace('/[\x00-\x1F\x7F]/', '', $cell));
-                    return $clean;
-                }, $row);
-
-                // Escribir la fila limpia
-                fputcsv($tempHandle, $cleanRow, ','); // Usamos coma como delimitador estándar
-            }
-
-            // Cerrar los archivos
-            fclose($handle);
-            fclose($tempHandle);
-
-            return $tempFile;
-
-        } catch (\Exception $e) {
-            Log::warning('Error al crear CSV limpio: ' . $e->getMessage());
-
-            // Cerrar los manejadores si están abiertos
-            if (isset($handle) && is_resource($handle)) {
-                fclose($handle);
-            }
-            if (isset($tempHandle) && is_resource($tempHandle)) {
-                fclose($tempHandle);
-            }
-
-            return null;
-        }
-    }
 
     /**
      * Analiza la estructura del archivo CSV para determinar formato y delimitador
@@ -870,5 +984,71 @@ class ProcessTruckFile implements ShouldQueue
         }
 
         return null;
+    }
+
+    // Cuando proceses con LOAD DATA INFILE, modifica la función para incluir UTF8 y character set
+    protected function processWithLoadData($filePath, $delimiter)
+    {
+        // 1. Crear tabla temporal con configuración de charset adecuada
+        DB::statement('DROP TABLE IF EXISTS temp_truck_import');
+        DB::statement('CREATE TABLE temp_truck_import LIKE trucks');
+
+        // Alteramos la tabla temporal para usar UTF8 sin restricciones
+        DB::statement('ALTER TABLE temp_truck_import CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci');
+
+        // 2. Crear un archivo con codificación UTF8 limpio
+        $cleanedFile = $this->createCleanedCsvFile($filePath);
+        $processFilePath = $cleanedFile ?: $filePath;
+
+        // 3. Cargar datos directamente al servidor MySQL (muy rápido)
+        $escapedPath = str_replace('\\', '\\\\', $processFilePath);
+
+        // Preparar columnas que esperamos en el CSV
+        $handle = fopen($processFilePath, 'r');
+        $headers = fgetcsv($handle, 0, $delimiter);
+        fclose($handle);
+
+        // Normalizar encabezados
+        $headers = $this->normalizeHeaders($headers);
+        $columnList = implode(',', $headers);
+
+        // Ejecutar LOAD DATA INFILE con opciones de character set
+        try {
+            DB::statement("
+            LOAD DATA LOCAL INFILE '$escapedPath'
+            INTO TABLE temp_truck_import
+            CHARACTER SET utf8mb4
+            FIELDS TERMINATED BY '$delimiter'
+            ENCLOSED BY '\"'
+            LINES TERMINATED BY '\\n'
+            IGNORE 1 LINES
+            ($columnList)
+            SET batch_id = '{$this->batchId}',
+                file_name = '{$this->fileName}',
+                fecha_registro = '{$this->fechaHora}',
+                final_status = '1'
+        ");
+
+            // 4-7. Resto del proceso como en la versión original...
+            $this->createHistoryRecordsFromTemp();
+            $this->updateExistingRecordsFromTemp();
+            $this->insertNewRecordsFromTemp();
+            DB::statement('DROP TABLE IF EXISTS temp_truck_import');
+
+            // Actualizar progreso
+            $count = Truck::where('batch_id', $this->batchId)->count();
+            $this->updateLockFileProgress('truck', $count);
+
+        } catch (\Exception $e) {
+            Log::error('Error en LOAD DATA INFILE: ' . $e->getMessage());
+
+            // Si falla LOAD DATA INFILE, intentamos con el método de lotes
+            $this->processWithLargeBatchesWithEncoding($processFilePath, $delimiter, 0);
+
+            // Limpiar
+            if (file_exists($cleanedFile)) {
+                unlink($cleanedFile);
+            }
+        }
     }
 }
