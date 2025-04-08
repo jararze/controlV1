@@ -628,7 +628,8 @@ class ProcessTruckFile implements ShouldQueue
             );
 
             // Usar importToArray en lugar de import estándar
-            $rows = Excel::toArray($import, $importPath)[0];
+//            $rows = Excel::toArray($import, $importPath)[0];
+            $rows = Excel::toArray($import, $importPath, null, \Maatwebsite\Excel\Excel::CSV)[0];
 
             // Procesar filas manualmente en lotes
             $processedRows = 0;
