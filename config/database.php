@@ -112,6 +112,20 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'external_db' => [
+            'driver' => 'mysql', // o el driver que corresponda (pgsql, sqlsrv, etc.)
+            'host' => env('EXT_DB_HOST', '127.0.0.1'),
+            'port' => env('EXT_DB_PORT', '3306'),
+            'database' => env('EXT_DB_DATABASE', 'tms_historico'),
+            'username' => env('EXT_DB_USERNAME', 'root'),
+            'password' => env('EXT_DB_PASSWORD', 'Dali19((Kafka'),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+
     ],
 
     /*

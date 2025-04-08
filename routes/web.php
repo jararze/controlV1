@@ -5,6 +5,7 @@ use App\Http\Controllers\BoltrackUpdateController;
 use App\Http\Controllers\CallsController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ScoreCardController;
 use App\Http\Controllers\UploadsController;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,15 @@ Route::middleware('auth', 'verified')->group(function () {
 
 
     Route::get('drivers/index', [DriverController::class, 'index'])->name('drivers.index');
+
+    Route::get('scoreCard', [ScoreCardController::class, 'index'])->name('scoreCard.index');
+    Route::get('scoreCard/{id}', [ScoreCardController::class, 'show'])->name('scoreCard.show');
+
+
+    // Agregar estas rutas a tu archivo routes/web.php
+
+    Route::get('/uploads/processing', [ArgusController::class, 'show'])
+        ->name('uploads.processing');
 
 
 

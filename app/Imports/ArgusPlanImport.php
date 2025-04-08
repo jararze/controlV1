@@ -115,10 +115,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             // Generar batchId por fecha si no existe
             if (!isset($this->batchesByDate[$fechaBase])) {
                 $this->batchesByDate[$fechaBase] = (string) Str::uuid();
-                Log::info('Nuevo batch generado', [
-                    'fecha_base' => $fechaBase,
-                    'batch_id' => $this->batchesByDate[$fechaBase]
-                ]);
+//                Log::info('Nuevo batch generado', [
+//                    'fecha_base' => $fechaBase,
+//                    'batch_id' => $this->batchesByDate[$fechaBase]
+//                ]);
             }
 
             // Generar nombre de archivo con fecha correcta
@@ -165,10 +165,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             // Si es un número (serial de Excel)
             if (is_numeric($value)) {
                 $resultado = Carbon::instance(Date::excelToDateTimeObject($value))->format('Y-m-d');
-                Log::info('Fecha transformada desde número Excel', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha transformada desde número Excel', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 
@@ -176,10 +176,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches)) {
                 $fecha = Carbon::createFromFormat('Y-m-d', $value);
                 $resultado = $fecha->format('Y-m-d');
-                Log::info('Fecha transformada desde ISO', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha transformada desde ISO', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 
@@ -191,10 +191,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
 
                 $fecha = Carbon::createFromFormat('Y-m-d', sprintf('%s-%02d-%02d', $anio, $mes, $dia));
                 $resultado = $fecha->format('Y-m-d');
-                Log::info('Fecha transformada desde formato con slash', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha transformada desde formato con slash', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 
@@ -224,10 +224,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             // Si es un número (serial de Excel)
             if (is_numeric($value)) {
                 $resultado = Carbon::instance(Date::excelToDateTimeObject($value))->format('Y-m-d H:i:s');
-                Log::info('Fecha y hora transformada desde número Excel', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha y hora transformada desde número Excel', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 
@@ -235,10 +235,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             if (preg_match('/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/', $value, $matches)) {
                 $fecha = Carbon::createFromFormat('Y-m-d H:i:s', $value);
                 $resultado = $fecha->format('Y-m-d H:i:s');
-                Log::info('Fecha y hora transformada desde ISO completo', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha y hora transformada desde ISO completo', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 
@@ -252,10 +252,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
 
                 $fechaHora = Carbon::create($anio, $mes, $dia, $hora, $minuto, 0);
                 $resultado = $fechaHora->format('Y-m-d H:i:s');
-                Log::info('Fecha y hora transformada desde formato con slash', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha y hora transformada desde formato con slash', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 
@@ -263,10 +263,10 @@ class ArgusPlanImport implements ToModel, WithHeadingRow, WithChunkReading, With
             $fecha = $this->transformExcelDate($value);
             if ($fecha) {
                 $resultado = $fecha . ' 00:00:00';
-                Log::info('Fecha transformada sin hora', [
-                    'original' => $value,
-                    'resultado' => $resultado
-                ]);
+//                Log::info('Fecha transformada sin hora', [
+//                    'original' => $value,
+//                    'resultado' => $resultado
+//                ]);
                 return $resultado;
             }
 

@@ -37,6 +37,14 @@
                 <span class="tooltip">Drivers</span>
             </a>
 
+            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300 {{ request()->routeIs('scoreCard.index') ? 'active' : '' }}"
+               data-tooltip="" data-tooltip-placement="right" href="{{ route('scoreCard.index') }}">
+                <span class="menu-icon">
+                    <i class="ki-filled ki-truck"></i>
+                </span>
+                <span class="tooltip">ScoreCard</span>
+            </a>
+
 {{--            <a class="btn btn-icon btn-icon-lg rounded-full size-10 border border-transparent text-gray-600 hover:bg-light hover:text-primary hover:border-gray-300 [.active&]:bg-light [.active&]:text-primary [.active&]:border-gray-300"--}}
 {{--               data-tooltip="" data-tooltip-placement="right" href="">--}}
 {{--                <span class="menu-icon">--}}

@@ -217,4 +217,21 @@ class ArgusController extends Controller
         return Excel::download(new ArgusExport($result), 'limpieza_argus.xlsx');
     }
 
+    /**
+     * Muestra la página de procesamiento de archivos
+     */
+    public function show(Request $request, JobStatusChecker $jobStatusChecker)
+    {
+        // Verificar si hay jobs corriendo
+        $jobsRunning = $jobStatusChecker->areJobsRunning();
+
+        // Si no hay jobs corriendo y no venimos de una redirección post-carga,
+        // redirigir al usuario a la página principal
+        if (!$jobsRunning && !$request->session()->has('success')) {
+            return redirect()->route('dashboard')->with('info', 'No hay archivos en procesamiento actualmente.');
+        }
+
+        return view('argus.processing');
+    }
+
 }

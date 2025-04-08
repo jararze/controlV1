@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 trait LockFileProcessingTrait
 {
@@ -72,6 +73,8 @@ trait LockFileProcessingTrait
             if ($lockData) {
                 $lockData['processed_records'] = $processedRecords;
                 $lockData['last_update'] = now()->toDateTimeString();
+                $lockData['memory_usage'] = memory_get_usage(true);
+                $lockData['peak_memory'] = memory_get_peak_usage(true);
 
                 // Recalcular tiempo estimado basado en el progreso actual
                 if ($lockData['total_records'] > 0 && $processedRecords > 0) {
@@ -89,6 +92,12 @@ trait LockFileProcessingTrait
                 }
 
                 file_put_contents($lockPath, json_encode($lockData));
+
+                Log::info("Progreso actualizado: {$processedRecords} registros procesados", [
+                    'batch_id' => $lockData['batch_id'] ?? 'unknown',
+                    'file' => $lockData['file_name'] ?? 'unknown',
+                    'memory' => round(memory_get_usage(true)/1024/1024, 2) . 'MB'
+                ]);
             }
         }
     }

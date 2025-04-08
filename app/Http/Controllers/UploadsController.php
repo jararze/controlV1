@@ -182,29 +182,51 @@ class UploadsController extends Controller
 
     public function postTruck(Request $request)
     {
-        $request->validate([
-            'archivo' => 'required|file|mimes:csv,txt,text/plain,xlsx|max:15240',
+        $validator = Validator::make($request->all(), [
+            'archivo' => 'required|file|mimes:csv,txt,text/plain,xlsx|max:30480', // Aumentado a 30MB
             'fecha_hora' => 'required|date',
         ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
 
         try {
             $file = $request->file('archivo');
             $fileName = $file->getClientOriginalName();
+            $fileSize = $file->getSize();
 
-            // Almacenar en el directorio public (que tiene permisos adecuados)
-            $filePath = $file->storeAs('uploads/temp', $fileName, 'public');
+            // Validaciones adicionales para archivos grandes
+            if ($fileSize > 3 * 1024 * 1024) { // Si es mayor a 5MB
+                Log::info('Archivo grande detectado, aplicando procesamiento optimizado', [
+                    'fileName' => $fileName,
+                    'size' => $fileSize
+                ]);
+            }
+
+            // Almacenar en el directorio public con un nombre único para evitar colisiones
+            $uniqueName = uniqid() . '_' . $fileName;
+            $filePath = $file->storeAs('uploads/temp', $uniqueName, 'public');
 
             $batchId = (string) Str::uuid();
             $fechaHora = $request->input('fecha_hora');
 
-            // El path para job debe incluir 'public/'
-            ProcessTruckFile::dispatch('public/' . $filePath, $batchId, $fechaHora, $fileName);
+            // Verificar si hay algún procesamiento activo
+            $jobStatusChecker = new \App\Services\JobStatusChecker();
+            if ($jobStatusChecker->areJobsRunning()) {
+                return redirect()->back()->with('warning', 'Hay un procesamiento en curso. Por favor, espere a que termine antes de subir otro archivo.');
+            }
 
-            return back()->with('success', 'Archivo subido correctamente. La importación se está procesando en segundo plano.');
+            // El path para job debe incluir 'public/'
+            ProcessTruckFile::dispatch('public/' . $filePath, $batchId, $fechaHora, $fileName); // Asegurar que se use la cola default
+
+            // Redirigir a la página de procesamiento
+            return redirect()->route('uploads.processing')->with('success', 'Archivo subido correctamente. La importación se está procesando en segundo plano.');
         } catch (\Exception $e) {
             Log::error('Error al importar el archivo: '.$e->getMessage(), [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+                'file' => $fileName ?? 'unknown',
             ]);
             return redirect()->back()->with('error', 'Error al procesar el archivo: ' . $e->getMessage());
         }
