@@ -32,6 +32,8 @@
 
             <x-card-index-component icon="ki-design-1" title="Carga Argus" subtitle="Carga para eliminar viajes NO CBN" descrption="Carga para eliminar viajes NO CBN"  href="{{ route('uploads.index.argus') }}"  lista="{{ route('uploads.index.argus.index') }}" />
 
+            <x-card-index-component icon="ki-design-1" title="Telemetria Argus" subtitle="Carga para eliminar viajes NO CBN" descrption="Carga para eliminar viajes NO CBN"  href="{{ route('uploads.argusReporte.conduccion') }}"  lista="{{ route('uploads.argusReporte.conduccion.list') }}" />
+
 
 
         </div>

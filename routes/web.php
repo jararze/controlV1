@@ -52,6 +52,12 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::post('argus/files/process', [ArgusController::class, 'processFiles'])->name('argus.files.process');
     Route::post('argus/files/process/download', [ArgusController::class, 'downloadExcel'])->name('argus.files.process.download');
 
+    // Rutas para Conducción (Límite y Excesos)
+    Route::get('/uploads/argus/conduccion', [UploadsController::class, 'getConduccion'])->name('uploads.argusReporte.conduccion');
+    Route::post('/uploads/argus/conduccion', [UploadsController::class, 'postConduccion'])->name('uploads.argusReporte.conduccion.post');
+    Route::get('/uploads/argus/conduccion/list/{tipo?}', [UploadsController::class, 'listConduccion'])->name('uploads.argusReporte.conduccion.list');
+    Route::delete('/uploads/argus/conduccion/{tipo}/{batch_id}', [UploadsController::class, 'destroyConduccion'])->name('uploads.argusReporte.conduccion.destroy');
+
 
     Route::get('/boltrack/update', [BoltrackUpdateController::class, 'update'])->name('boltrack.update');
 

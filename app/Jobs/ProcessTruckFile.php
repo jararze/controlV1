@@ -72,6 +72,18 @@ class ProcessTruckFile implements ShouldQueue
         ini_set('memory_limit', '1024M');
         // Aumentar tiempo máximo de ejecución del script
         set_time_limit(7200);
+
+        // AGREGAR ESTAS LÍNEAS PARA ASEGURAR UTF-8 EN LA CONEXIÓN
+        DB::statement('SET NAMES utf8mb4');
+        DB::statement('SET CHARACTER SET utf8mb4');
+        DB::statement('SET SESSION collation_connection = utf8mb4_unicode_ci');
+
+        // AGREGAR ESTAS LÍNEAS PARA CONFIGURACIÓN DE PHP
+        ini_set('default_charset', 'UTF-8');
+        mb_internal_encoding('UTF-8');
+        mb_http_output('UTF-8');
+
+
         // Aumentar tiempo máximo de espera de mysql
         DB::statement('SET SESSION wait_timeout = 28800');
         DB::statement('SET SESSION interactive_timeout = 28800');
@@ -129,12 +141,19 @@ class ProcessTruckFile implements ShouldQueue
         }
     }
 
+
+
     /**
      * Procesa un archivo CSV grande usando procesamiento por lotes optimizado con manejo robusto de formatos irregulares
      */
     protected function processLargeCSVFile($filePath)
     {
         // Crear un archivo temporal más limpio
+
+        ini_set('default_charset', 'UTF-8');
+        mb_internal_encoding('UTF-8');
+
+
         $cleanedFile = $this->createCleanedCsvFile($filePath);
         $processFilePath = $cleanedFile ?: $filePath;
 
@@ -263,12 +282,39 @@ class ProcessTruckFile implements ShouldQueue
             $tempFile = tempnam(sys_get_temp_dir(), 'csv_clean');
             $tempHandle = fopen($tempFile, 'w');
 
+            // NUEVO: Detectar la codificación del archivo original
+            $sample = '';
+            for ($i = 0; $i < 10 && !feof($handle); $i++) {
+                $sample .= fgets($handle) . "\n";
+            }
+            rewind($handle);
+
+            $encodings = ['UTF-8', 'ISO-8859-1', 'WINDOWS-1252', 'ASCII'];
+            $fileEncoding = null;
+
+            foreach ($encodings as $encoding) {
+                if (mb_check_encoding($sample, $encoding)) {
+                    $fileEncoding = $encoding;
+                    break;
+                }
+            }
+
+            // Si no se pudo detectar, usar ISO-8859-1 como predeterminado
+            $fileEncoding = $fileEncoding ?: 'ISO-8859-1';
+
+            Log::info("Codificación detectada en el archivo: " . $fileEncoding);
+
             // Leer y limpiar cada línea
             while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
                 // Eliminar espacios en blanco y caracteres nulos
-                $cleanRow = array_map(function($cell) {
+                $cleanRow = array_map(function($cell) use ($fileEncoding) {
                     // Convertir valores null a string vacío
                     if ($cell === null) return '';
+
+                    // Si la codificación no es UTF-8, convertir
+                    if ($fileEncoding !== 'UTF-8') {
+                        $cell = mb_convert_encoding($cell, 'UTF-8', $fileEncoding);
+                    }
 
                     // Eliminar caracteres de control y espacios al inicio/fin
                     $clean = trim(preg_replace('/[\x00-\x1F\x7F]/', '', $cell));

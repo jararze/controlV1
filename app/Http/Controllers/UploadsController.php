@@ -6,12 +6,16 @@ use App\Imports\ArgusPlanImport;
 use App\Imports\MatrixPlanImport;
 use App\Imports\TruckPlanImport;
 use App\Jobs\ProcessArgusFile;
+use App\Jobs\ProcessExcesoFile;
+use App\Jobs\ProcessLimiteFile;
 use App\Jobs\ProcessMatrixFile;
 use App\Jobs\ProcessTruckFile;
 use App\Models\Argus;
 use App\Models\BatchCall;
 use App\Models\Truck;
 use App\Models\Uploads\Matrix;
+use App\Services\FileImportService;
+use App\Services\JobStatusChecker;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,8 +25,17 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 
+
 class UploadsController extends Controller
 {
+
+    protected $fileImportService;
+
+    public function __construct(FileImportService $fileImportService)
+    {
+        $this->fileImportService = $fileImportService;
+    }
+
     public function getMatriz()
     {
         return view('uploads.matriz');
@@ -212,7 +225,7 @@ class UploadsController extends Controller
             $fechaHora = $request->input('fecha_hora');
 
             // Verificar si hay algún procesamiento activo
-            $jobStatusChecker = new \App\Services\JobStatusChecker();
+            $jobStatusChecker = new JobStatusChecker();
             if ($jobStatusChecker->areJobsRunning()) {
                 return redirect()->back()->with('warning', 'Hay un procesamiento en curso. Por favor, espere a que termine antes de subir otro archivo.');
             }
@@ -286,6 +299,112 @@ class UploadsController extends Controller
             ->get();
 
         return view('uploads.argus.list', compact('result'));
+    }
+
+    public function getConduccion()
+    {
+        return view('uploads.argusReporte.index');
+    }
+
+    public function postConduccion(Request $request)
+    {
+
+        ini_set('max_execution_time', 300);
+
+
+        $validator = Validator::make($request->all(), [
+            'archivo' => 'required|file|mimes:xlsx,xls,csv|max:50240', // Increased max size to 50MB
+            'fecha_hora' => 'required|date',
+            'tipo' => 'required|in:limite,excesos',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+        try {
+            $file = $request->file('archivo');
+            $originalFileName = $file->getClientOriginalName();
+            $batchId = (string) Str::uuid();
+            $fechaHora = $request->input('fecha_hora');
+            $tipo = $request->input('tipo');
+
+            // Store the file
+            $filePath = $file->storeAs('uploads/' . $tipo, $batchId . '_' . $originalFileName, 'public');
+
+            // Direct import instead of using a job
+            $tableName = $tipo === 'limite' ? 'limites' : 'excesos';
+
+            // Start import process (this runs synchronously but is very fast)
+            $startTime = microtime(true);
+
+            // Import directly to database
+            $result = $this->fileImportService->importFileToDatabase(
+                'public/' . $filePath,
+                $tableName,
+                $batchId,
+                $originalFileName,
+                $fechaHora
+            );
+
+            $endTime = microtime(true);
+            $executionTime = round($endTime - $startTime, 2);
+
+            if ($result) {
+                return redirect()->route('uploads.conduccion.list', ['tipo' => $tipo])
+                    ->with('success', "Archivo procesado exitosamente: $originalFileName. Se importaron $result registros en $executionTime segundos.");
+            } else {
+                return redirect()->back()
+                    ->with('error', 'Error al procesar el archivo. Por favor revise los logs para más detalles.');
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Error al importar el archivo: ' . $e->getMessage(), [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $originalFileName ?? 'unknown',
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Error al procesar el archivo: ' . $e->getMessage());
+        }
+    }
+
+    public function listConduccion($tipo = 'limite')
+    {
+        if ($tipo === 'limite') {
+            $result = Limite::select('batch_id', 'file_name', DB::raw('MAX(fecha_registro) as fecha_registro'), 'final_status')
+                ->groupBy('batch_id', 'file_name', 'final_status')
+                ->orderBy('fecha_registro', 'desc')
+                ->get();
+        } else {
+            $result = Exceso::select('batch_id', 'file_name', DB::raw('MAX(fecha_registro) as fecha_registro'), 'final_status')
+                ->groupBy('batch_id', 'file_name', 'final_status')
+                ->orderBy('fecha_registro', 'desc')
+                ->get();
+        }
+
+        return view('uploads.conduccion.list', compact('result', 'tipo'));
+    }
+
+    public function destroyConduccion($tipo, $batchId)
+    {
+        try {
+            if ($tipo === 'limite') {
+                $deletedRows = Limite::where('batch_id', $batchId)->delete();
+            } else {
+                $deletedRows = Exceso::where('batch_id', $batchId)->delete();
+            }
+
+            if ($deletedRows > 0) {
+                return redirect()->back()->with('success', 'Registros eliminados exitosamente.');
+            } else {
+                return redirect()->back()->with('error', 'No se encontraron registros con el ID de lote especificado.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error al eliminar registros: '.$e->getMessage());
+            return redirect()->back()->with('error', 'Error al eliminar registros: ' . $e->getMessage());
+        }
     }
 
 
