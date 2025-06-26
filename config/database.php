@@ -115,11 +115,11 @@ return [
 
         'external_db' => [
             'driver' => 'mysql', // o el driver que corresponda (pgsql, sqlsrv, etc.)
-            'host' => env('EXT_DB_HOST', '127.0.0.1'),
+            'host' => env('EXT_DB_HOST', '159.203.123.109'),
             'port' => env('EXT_DB_PORT', '3306'),
-            'database' => env('EXT_DB_DATABASE', 'tms_historico'),
-            'username' => env('EXT_DB_USERNAME', 'root'),
-            'password' => env('EXT_DB_PASSWORD', 'Dali19((Kafka'),
+            'database' => env('EXT_DB_DATABASE', 'zsupagswcr'),
+            'username' => env('EXT_DB_USERNAME', 'zsupagswcr'),
+            'password' => env('EXT_DB_PASSWORD', 'w5q2qEhgmK'),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',

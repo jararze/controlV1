@@ -52,6 +52,8 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::post('argus/files/process', [ArgusController::class, 'processFiles'])->name('argus.files.process');
     Route::post('argus/files/process/download', [ArgusController::class, 'downloadExcel'])->name('argus.files.process.download');
 
+    Route::get('/argus/process-external', [ArgusController::class, 'processExternalFiles'])->name('argus.external.process');
+
     // Rutas para Conducción (Límite y Excesos)
     Route::get('/uploads/argus/conduccion', [UploadsController::class, 'getConduccion'])->name('uploads.argusReporte.conduccion');
     Route::post('/uploads/argus/conduccion', [UploadsController::class, 'postConduccion'])->name('uploads.argusReporte.conduccion.post');
