@@ -81,11 +81,14 @@ class UltraFastTruck
             // Import directly with our optimized CSV processor
             $recordCount = $this->importCsvDirectly($cleanFilePath, $tempTableName, $batchId, $fileName, $fechaHora);
 
-            // NUEVO: Limpiar espacios en blanco de TODAS las columnas VARCHAR
-            $this->cleanAllColumns($tempTableName);
+            // MEJORADO: Limpiar espacios en blanco ANTES y DESPUÉS de la importación
+            $this->cleanAllColumnsImproved($tempTableName);
 
             // DESPUÉS: Procesar las fechas
             $this->processDateColumns($tempTableName);
+
+            // VERIFICACIÓN ADICIONAL: Verificar que la limpieza funcionó
+            $this->verifyColumnCleaning($tempTableName);
 
             Log::info("Imported, cleaned and processed {$recordCount} records to temporary table", [
                 'temp_table' => $tempTableName,
@@ -104,85 +107,137 @@ class UltraFastTruck
     }
 
     /**
-     * Limpiar espacios en blanco de todas las columnas VARCHAR
+     * MEJORADA: Limpiar espacios en blanco de todas las columnas VARCHAR
      */
-    private function cleanAllColumns($tempTableName)
+    private function cleanAllColumnsImproved($tempTableName)
     {
-        Log::info("Cleaning whitespace from all VARCHAR columns", ['table' => $tempTableName]);
+        Log::info("Starting improved column cleaning for all VARCHAR columns", ['table' => $tempTableName]);
 
         try {
-            // Limpiar TODAS las columnas VARCHAR de espacios en blanco
+            // Verificar datos antes de la limpieza
+            $sampleBefore = DB::select("
+            SELECT
+                CONCAT('\"', patente, '\"') as patente_before,
+                LENGTH(patente) as patente_length_before
+            FROM {$tempTableName}
+            WHERE patente IS NOT NULL
+            LIMIT 3
+        ");
+
+            Log::info("Sample data BEFORE cleaning", ['sample_before' => $sampleBefore]);
+
+            // Limpieza más agresiva - eliminar TODOS los espacios de patente
             DB::statement("
             UPDATE {$tempTableName}
-            SET
-                cod = TRIM(cod),
-                deposito_origen = TRIM(deposito_origen),
-                cod_destino = TRIM(cod_destino),
-                deposito_destino = TRIM(deposito_destino),
-                planilla = TRIM(planilla),
-                flete = TRIM(flete),
-                nombre_fletero = TRIM(nombre_fletero),
-                camion = TRIM(camion),
-                patente = TRIM(patente),
-                fecha_salida_raw = TRIM(fecha_salida_raw),
-                hora_salida_raw = TRIM(hora_salida_raw),
-                fecha_llegada_raw = TRIM(fecha_llegada_raw),
-                hora_llegada_raw = TRIM(hora_llegada_raw),
-                diferencia_horas = TRIM(diferencia_horas),
-                categoria_flete = TRIM(categoria_flete),
-                cierre = TRIM(cierre),
-                status = TRIM(status),
-                cod_producto = TRIM(cod_producto),
-                producto = TRIM(producto),
-                variedad = TRIM(variedad),
-                linea = TRIM(linea),
-                tipo = TRIM(tipo),
-                numero_orden = TRIM(numero_orden),
-                fecha_orden_raw = TRIM(fecha_orden_raw),
-                batch_id = TRIM(batch_id),
-                file_name = TRIM(file_name),
-                final_status = TRIM(final_status)
-            WHERE 1=1
+            SET patente = REPLACE(REPLACE(REPLACE(REPLACE(TRIM(patente), ' ', ''), CHAR(9), ''), CHAR(10), ''), CHAR(13), '')
+            WHERE patente IS NOT NULL
         ");
 
-            // Verificar algunos campos importantes después de la limpieza
-            $sampleCleaned = DB::select("
+            // Limpiar otras columnas normalmente (solo trim)
+            $otherColumns = [
+                'cod', 'deposito_origen', 'cod_destino', 'deposito_destino', 'planilla',
+                'flete', 'nombre_fletero', 'camion', 'fecha_salida_raw',
+                'hora_salida_raw', 'fecha_llegada_raw', 'hora_llegada_raw', 'diferencia_horas',
+                'categoria_flete', 'cierre', 'status', 'cod_producto', 'producto',
+                'variedad', 'linea', 'tipo', 'numero_orden', 'fecha_orden_raw',
+                'batch_id', 'file_name', 'final_status'
+            ];
+
+            foreach ($otherColumns as $column) {
+                DB::statement("UPDATE {$tempTableName} SET {$column} = TRIM({$column}) WHERE {$column} IS NOT NULL");
+            }
+
+            // Verificar después de la limpieza
+            $sampleAfter = DB::select("
             SELECT
-                CONCAT('\"', planilla, '\"') as planilla_cleaned,
-                CONCAT('\"', patente, '\"') as patente_cleaned,
-                CONCAT('\"', fecha_salida_raw, '\"') as fecha_salida_cleaned,
-                CONCAT('\"', cod_producto, '\"') as cod_producto_cleaned
+                CONCAT('\"', patente, '\"') as patente_after,
+                LENGTH(patente) as patente_length_after
             FROM {$tempTableName}
-            LIMIT 5
+            WHERE patente IS NOT NULL
+            LIMIT 3
         ");
 
-            Log::info("Sample data after cleaning all columns", [
-                'sample_cleaned' => $sampleCleaned
-            ]);
-
-            // Contar registros con campos importantes no vacíos
-            $cleanStats = DB::select("
-            SELECT
-                COUNT(*) as total_records,
-                COUNT(CASE WHEN planilla IS NOT NULL AND planilla != '' THEN 1 END) as planilla_not_empty,
-                COUNT(CASE WHEN patente IS NOT NULL AND patente != '' THEN 1 END) as patente_not_empty,
-                COUNT(CASE WHEN cod_producto IS NOT NULL AND cod_producto != '' THEN 1 END) as cod_producto_not_empty
-            FROM {$tempTableName}
-        ")[0];
-
-            Log::info("Column cleaning statistics", [
-                'stats' => $cleanStats
-            ]);
+            Log::info("Sample data AFTER cleaning", ['sample_after' => $sampleAfter]);
 
         } catch (\Exception $e) {
-            Log::error("Error cleaning columns: " . $e->getMessage(), [
-                'table' => $tempTableName,
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error("Error in improved column cleaning: " . $e->getMessage());
             throw $e;
         }
     }
 
+    /**
+     * NUEVA: Verificar que la limpieza de columnas funcionó correctamente
+     */
+    private function verifyColumnCleaning($tempTableName)
+    {
+        Log::info("Verifying column cleaning results", ['table' => $tempTableName]);
+
+        try {
+            // Verificar patentes específicamente
+            $patenteIssues = DB::select("
+                SELECT
+                    COUNT(*) as total_patentes,
+                    COUNT(CASE WHEN patente LIKE ' %' THEN 1 END) as leading_spaces,
+                    COUNT(CASE WHEN patente LIKE '% ' THEN 1 END) as trailing_spaces,
+                    COUNT(CASE WHEN patente LIKE '% %' THEN 1 END) as internal_spaces,
+                    COUNT(CASE WHEN LENGTH(patente) != LENGTH(TRIM(patente)) THEN 1 END) as trim_needed
+                FROM {$tempTableName}
+                WHERE patente IS NOT NULL AND patente != ''
+            ")[0];
+
+            Log::info("Patente cleaning verification", [
+                'patente_issues' => $patenteIssues
+            ]);
+
+            // Si encontramos problemas, mostrar ejemplos
+            if ($patenteIssues->internal_spaces > 0 || $patenteIssues->trim_needed > 0) {
+                $examples = DB::select("
+                    SELECT
+                        CONCAT('\"', patente, '\"') as patente_quoted,
+                        LENGTH(patente) as original_length,
+                        LENGTH(TRIM(patente)) as trimmed_length,
+                        planilla
+                    FROM {$tempTableName}
+                    WHERE (patente LIKE '% %' OR LENGTH(patente) != LENGTH(TRIM(patente)))
+                    AND patente IS NOT NULL
+                    LIMIT 5
+                ");
+
+                Log::warning("Column cleaning issues found - examples", [
+                    'examples' => $examples
+                ]);
+
+                // Aplicar limpieza adicional si es necesario
+                Log::info("Applying additional aggressive cleaning...");
+
+                DB::statement("
+                    UPDATE {$tempTableName}
+                    SET patente = REPLACE(REPLACE(REPLACE(REPLACE(patente, ' ', ''), CHAR(9), ''), CHAR(10), ''), CHAR(13), '')
+                    WHERE patente IS NOT NULL
+                ");
+
+                // Verificar después de limpieza adicional
+                $afterAdditionalCleaning = DB::select("
+                    SELECT
+                        COUNT(CASE WHEN patente LIKE '% %' THEN 1 END) as still_has_internal_spaces,
+                        COUNT(CASE WHEN LENGTH(patente) != LENGTH(TRIM(patente)) THEN 1 END) as still_needs_trim
+                    FROM {$tempTableName}
+                    WHERE patente IS NOT NULL AND patente != ''
+                ")[0];
+
+                Log::info("After additional cleaning", [
+                    'result' => $afterAdditionalCleaning
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Error verifying column cleaning: " . $e->getMessage(), [
+                'table' => $tempTableName,
+                'trace' => $e->getTraceAsString()
+            ]);
+            // No lanzar excepción aquí, solo logear el error
+        }
+    }
 
     /**
      * Procesar columnas de fecha después de la importación
@@ -464,7 +519,6 @@ class UltraFastTruck
         return null;
     }
 
-
     /**
      * Import CSV directly using MySQL LOAD DATA INFILE (fastest method)
      */
@@ -630,7 +684,13 @@ class UltraFastTruck
                 $record = [];
                 foreach ($columnMapping as $csvHeader => $dbColumn) {
                     $value = $data[$csvHeader] ?? '';
-                    $record[$dbColumn] = trim($value) === '' ? null : trim($value);
+                    // MEJORADO: Limpieza más agresiva durante la importación
+                    $cleanValue = trim($value);
+                    if ($dbColumn === 'patente') {
+                        // Limpieza especial para patente - ELIMINAR TODOS LOS ESPACIOS
+                        $cleanValue = preg_replace('/\s+/', '', trim($value));
+                    }
+                    $record[$dbColumn] = $cleanValue === '' ? null : $cleanValue;
                 }
 
                 // Add metadata
@@ -875,20 +935,25 @@ class UltraFastTruck
             while (($row = fgetcsv($handle, 0, ',')) !== false) {
                 $rowCount++;
 
+                // MEJORADO: Limpiar cada celda durante el procesamiento del CSV
+                $cleanedRow = array_map(function($cell) {
+                    return trim($cell);
+                }, $row);
+
                 // Check if this row contains our target planillas
                 // Assuming planilla is in first few columns, check first 5 columns
-                for ($i = 0; $i < min(5, count($row)); $i++) {
-                    if (in_array(trim($row[$i]), $targetPlanillas)) {
+                for ($i = 0; $i < min(5, count($cleanedRow)); $i++) {
+                    if (in_array(trim($cleanedRow[$i]), $targetPlanillas)) {
                         $targetPlanillasFound[] = [
-                            'planilla' => trim($row[$i]),
+                            'planilla' => trim($cleanedRow[$i]),
                             'row_number' => $rowCount,
-                            'full_row' => $row
+                            'full_row' => $cleanedRow
                         ];
                         break;
                     }
                 }
 
-                fputcsv($tempHandle, $row);
+                fputcsv($tempHandle, $cleanedRow);
             }
 
             // Close files
