@@ -1055,12 +1055,12 @@ class UltraFastTruck
                     t.salida, t.entrada, t.valor_producto, t.variedad, t.linea, t.tipo, t.numero_orden, t.fecha_orden,
                     t.batch_id, t.file_name, t.fecha_registro, t.final_status, t.created_at, t.updated_at
                 FROM {$tempTableName} t
-                LEFT JOIN trucks tr ON (
-                    t.planilla = tr.planilla
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM trucks tr
+                    WHERE t.planilla = tr.planilla
                     AND t.patente = tr.patente
                     AND COALESCE(t.cod_producto, '') = COALESCE(tr.cod_producto, '')
                 )
-                WHERE tr.id IS NULL
             ";
 
             $insertedCount = DB::statement($insertSql) ? DB::getPdo()->lastInsertId() : 0;
