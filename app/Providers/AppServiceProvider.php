@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\ImportGeocercasCommand;
+use App\Services\ReporteFlotaService;
 use Illuminate\Support\ServiceProvider;
 use App\Services\JobStatusChecker;
 
@@ -16,6 +18,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(JobStatusChecker::class, function ($app) {
             return new JobStatusChecker();
         });
+        $this->app->singleton(ReporteFlotaService::class);
 
         // Cualquier otro código que ya tengas aquí...
     }
@@ -25,6 +28,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                ImportGeocercasCommand::class,
+                // Otros comandos...
+            ]);
+        }
     }
 }

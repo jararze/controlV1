@@ -1,5 +1,7 @@
 <?php
 
+use App\Console\Commands\ImportGeocercasCommand;
+use App\Providers\TruckTrackingServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,4 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
-    })->create();
+    })
+    ->withCommands([
+        // AGREGAR AQUÍ LOS COMANDOS:
+        ImportGeocercasCommand::class,
+        // Otros comandos cuando los creemos...
+    ])
+    ->withProviders([
+        // AGREGAR AQUÍ EL SERVICE PROVIDER:
+        TruckTrackingServiceProvider::class,
+    ])->create();

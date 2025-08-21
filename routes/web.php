@@ -5,12 +5,44 @@ use App\Http\Controllers\BoltrackUpdateController;
 use App\Http\Controllers\CallsController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReporteFlotaController;
 use App\Http\Controllers\ScoreCardController;
+use App\Http\Controllers\TruckTrackingController;
 use App\Http\Controllers\UploadsController;
+use App\Services\ReporteFlotaService;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+});
+
+Route::prefix('truck-tracking')->name('truck-tracking.')->middleware(['auth'])->group(function () {
+    // Dashboard principal
+    Route::get('/', [TruckTrackingController::class, 'dashboard'])->name('dashboard');
+
+    // Listado de camiones
+    Route::get('/trucks', [TruckTrackingController::class, 'index'])->name('index');
+
+    // Detalle de camión
+    Route::get('/trucks/{truckTracking}', [TruckTrackingController::class, 'show'])->name('show');
+
+    // Procesar tracking manualmente
+    Route::post('/process', [TruckTrackingController::class, 'processTracking'])->name('process');
+
+    // Generar reporte
+    Route::post('/report', [TruckTrackingController::class, 'generateReport'])->name('generate-report');
+
+    // Descargar reporte
+    Route::get('/download/{filename}', [TruckTrackingController::class, 'downloadReport'])
+        ->name('download-report')
+        ->where('filename', '.*');
+
+    // Alertas JSON
+    Route::get('/alerts', [TruckTrackingController::class, 'alerts'])->name('alerts');
+
+    // Actualizar status manualmente
+    Route::patch('/trucks/{truckTracking}/status', [TruckTrackingController::class, 'updateTruckStatus'])
+        ->name('update-status');
 });
 
 Route::get('/dashboard', function () {
@@ -74,6 +106,19 @@ Route::middleware('auth', 'verified')->group(function () {
 
     Route::get('/uploads/processing', [ArgusController::class, 'show'])
         ->name('uploads.processing');
+
+
+    Route::group(['prefix' => 'reportes', 'as' => 'reportes.'], function () {
+        Route::get('/', [ReporteFlotaController::class, 'index'])->name('index');
+        Route::post('/obtener', [ReporteFlotaController::class, 'obtenerReportes'])->name('obtener');
+        Route::post('/actualizar-token', [ReporteFlotaController::class, 'actualizarToken'])->name('actualizar-token');
+        Route::post('/validar-token', [ReporteFlotaController::class, 'validarToken'])->name('validar-token');
+        Route::get('/ultimo', [ReporteFlotaController::class, 'obtenerUltimoReporte'])->name('ultimo');
+        Route::get('/test-conectividad', function() {
+            $service = new \App\Services\ReporteFlotaService();
+            return $service->testConectividad();
+        });
+    });
 
 
 
