@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Limite;
 use App\Models\Exceso;
 use App\Models\TokenApi;
+use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -24,12 +25,12 @@ class ReporteFlotaService
         $batchId = Str::uuid();
         $fechaRegistro = Carbon::now();
 
-        Log::info("INICIANDO DESCARGA - Batch: " . $batchId);
+        Log::info("Iniciando descarga con HTTP retry - batch_id: " . $batchId);
 
         try {
-            // Método 1: Usar un servicio proxy público
-            $excesos = $this->obtenerConProxy('RP131BodyExcesos.rep', $fechaInicio, $fechaFin, $tokenActivo, $batchId, $fechaRegistro);
-            $limites = $this->obtenerConProxy('RP131BodyLimites.rep', $fechaInicio, $fechaFin, $tokenActivo, $batchId, $fechaRegistro);
+            // Hacer ambas peticiones con retry automático
+            $excesos = $this->obtenerReporteConRetry('RP131BodyExcesos.rep', $fechaInicio, $fechaFin, $tokenActivo, $batchId, $fechaRegistro);
+            $limites = $this->obtenerReporteConRetry('RP131BodyLimites.rep', $fechaInicio, $fechaFin, $tokenActivo, $batchId, $fechaRegistro);
 
             return [
                 'excesos' => $excesos,
@@ -38,147 +39,71 @@ class ReporteFlotaService
             ];
 
         } catch (\Exception $e) {
-            Log::error("Método proxy falló: " . $e->getMessage());
-
-            // Fallback: Método directo con configuración especial
-            return $this->obtenerConConfiguracionEspecial($fechaInicio, $fechaFin, $tokenActivo, $batchId, $fechaRegistro);
+            Log::error("Error en obtenerReportes: " . $e->getMessage());
+            throw $e;
         }
     }
 
-    private function obtenerConProxy($endpoint, $fechaInicio, $fechaFin, $token, $batchId, $fechaRegistro)
+    private function obtenerReporteConRetry($endpoint, $fechaInicio, $fechaFin, $token, $batchId, $fechaRegistro)
     {
         $url = $this->construirUrl($endpoint, $fechaInicio, $fechaFin, $token);
         $tipoReporte = strpos($endpoint, 'Excesos') !== false ? 'excesos' : 'limites';
 
-        // Lista de proxies públicos para usar
-        $proxies = [
-            'https://api.allorigins.win/raw?url=' . urlencode($url),
-            'https://corsproxy.io/?' . urlencode($url),
-            'https://cors-anywhere.herokuapp.com/' . $url,
+        Log::info("Obteniendo {$tipoReporte} con retry...");
+
+        $intentos = [
+            // Intento 1: Configuración básica como test-api
+            ['timeout' => 15, 'retry' => 2, 'delay' => 1000],
+            // Intento 2: Más tiempo
+            ['timeout' => 30, 'retry' => 3, 'delay' => 2000],
+            // Intento 3: Máximo tiempo
+            ['timeout' => 60, 'retry' => 1, 'delay' => 3000]
         ];
 
-        foreach ($proxies as $index => $proxyUrl) {
+        foreach ($intentos as $index => $config) {
             try {
-                Log::info("Intentando proxy " . ($index + 1) . " para {$tipoReporte}");
+                Log::info("Intento " . ($index + 1) . " para {$tipoReporte} - timeout: {$config['timeout']}s");
 
-                $ch = curl_init();
-                curl_setopt_array($ch, [
-                    CURLOPT_URL => $proxyUrl,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 45,
-                    CURLOPT_CONNECTTIMEOUT => 15,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    CURLOPT_HTTPHEADER => [
-                        'Accept: application/json',
-                        'Origin: https://gestion.boltrack.net',
-                        'Referer: https://gestion.boltrack.net/',
-                    ],
-                ]);
+                $response = Http::retry($config['retry'], $config['delay'])
+                    ->withHeaders([
+                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept' => '*/*',
+                        'Origin' => 'https://gestion.boltrack.net',
+                        'Referer' => 'https://gestion.boltrack.net/',
+                    ])
+                    ->timeout($config['timeout'])
+                    ->get($url);
 
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $error = curl_error($ch);
-                curl_close($ch);
+                if ($response->successful()) {
+                    $jsonData = $response->json();
 
-                if ($response && $httpCode === 200 && empty($error)) {
-                    $data = json_decode($response, true);
-
-                    if (isset($data['data'])) {
-                        Log::info("Proxy " . ($index + 1) . " exitoso para {$tipoReporte}");
-                        return $this->procesarDatos($data['data'], $tipoReporte, $fechaInicio, $batchId, $fechaRegistro);
+                    if (isset($jsonData['data'])) {
+                        Log::info("Intento " . ($index + 1) . " exitoso para {$tipoReporte}");
+                        return $this->procesarDatos($jsonData['data'], $tipoReporte, $fechaInicio, $batchId, $fechaRegistro);
+                    } else {
+                        Log::warning("Respuesta sin campo 'data' en intento " . ($index + 1));
+                        continue;
                     }
+                } else {
+                    Log::warning("HTTP {$response->status()} en intento " . ($index + 1));
+                    continue;
                 }
 
-                Log::warning("Proxy " . ($index + 1) . " falló: HTTP {$httpCode}, Error: {$error}");
-
             } catch (\Exception $e) {
-                Log::warning("Proxy " . ($index + 1) . " excepción: " . $e->getMessage());
+                Log::warning("Intento " . ($index + 1) . " falló: " . $e->getMessage());
+
+                // Si es el último intento, lanzar excepción
+                if ($index === count($intentos) - 1) {
+                    throw new \Exception("Todos los intentos fallaron para {$tipoReporte}. Último error: " . $e->getMessage());
+                }
+
+                // Esperar antes del siguiente intento
+                sleep(2);
                 continue;
             }
         }
 
-        throw new \Exception("Todos los proxies fallaron para {$tipoReporte}");
-    }
-
-    private function obtenerConConfiguracionEspecial($fechaInicio, $fechaFin, $token, $batchId, $fechaRegistro)
-    {
-        Log::info("Usando configuración especial como fallback");
-
-        $resultados = ['excesos' => 0, 'limites' => 0, 'batch_id' => $batchId];
-
-        // Configuración cURL optimizada para redes problemáticas
-        $endpoints = [
-            'RP131BodyExcesos.rep' => 'excesos',
-            'RP131BodyLimites.rep' => 'limites'
-        ];
-
-        foreach ($endpoints as $endpoint => $tipo) {
-            try {
-                $url = $this->construirUrl($endpoint, $fechaInicio, $fechaFin, $token);
-
-                $ch = curl_init();
-                curl_setopt_array($ch, [
-                    CURLOPT_URL => $url,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 120, // Timeout muy alto
-                    CURLOPT_CONNECTTIMEOUT => 30,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_MAXREDIRS => 5,
-                    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    CURLOPT_HTTPHEADER => [
-                        'Accept: */*',
-                        'Accept-Language: es-ES,es;q=0.9',
-                        'Accept-Encoding: gzip, deflate, br',
-                        'Origin: https://gestion.boltrack.net',
-                        'Referer: https://gestion.boltrack.net/',
-                        'Connection: keep-alive',
-                        'Upgrade-Insecure-Requests: 1',
-                    ],
-                    CURLOPT_ENCODING => '', // Manejo automático de compresión
-                    CURLOPT_TCP_KEEPALIVE => 1,
-                    CURLOPT_TCP_KEEPIDLE => 120,
-                    CURLOPT_TCP_KEEPINTVL => 60,
-                    CURLOPT_DNS_CACHE_TIMEOUT => 300,
-                    CURLOPT_FRESH_CONNECT => false,
-                    CURLOPT_FORBID_REUSE => false,
-                ]);
-
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $error = curl_error($ch);
-                $info = curl_getinfo($ch);
-                curl_close($ch);
-
-                Log::info("cURL {$tipo} - HTTP: {$httpCode}, Error: {$error}, Tiempo: {$info['total_time']}s");
-
-                if ($response && $httpCode === 200 && empty($error)) {
-                    $data = json_decode($response, true);
-
-                    if (isset($data['data'])) {
-                        $count = $this->procesarDatos($data['data'], $tipo, $fechaInicio, $batchId, Carbon::now());
-                        $resultados[$tipo] = $count;
-                        Log::info("Configuración especial exitosa para {$tipo}: {$count} registros");
-                    } else {
-                        Log::warning("Respuesta sin campo data para {$tipo}");
-                    }
-                } else {
-                    Log::error("Error en {$tipo}: HTTP {$httpCode}, cURL: {$error}");
-                }
-
-                // Pausa entre peticiones para evitar rate limiting
-                sleep(2);
-
-            } catch (\Exception $e) {
-                Log::error("Excepción en {$tipo}: " . $e->getMessage());
-            }
-        }
-
-        return $resultados;
+        throw new \Exception("No se pudo obtener {$tipoReporte} después de múltiples intentos");
     }
 
     private function construirUrl($endpoint, $fechaInicio, $fechaFin, $token)
@@ -186,31 +111,21 @@ class ReporteFlotaService
         $inicio = Carbon::parse($fechaInicio);
         $fin = Carbon::parse($fechaFin);
 
-        $params = [
-            'E' => $token,
-            'T' => 0,
-            'IMEI' => '',
-            'mesi' => $inicio->format('ym'),
-            'diai' => $inicio->format('d'),
-            'horai' => '00',
-            'mini' => '00',
-            'mesf' => $fin->format('ym'),
-            'diaf' => $fin->format('d'),
-            'horaf' => '23',
-            'minf' => '59',
-            'grupo' => ''
-        ];
+        // Construir manualmente sin codificar el token
+        $params = sprintf(
+            'E=%s&T=0&IMEI=&mesi=%s&diai=%s&horai=00&mini=00&mesf=%s&diaf=%s&horaf=23&minf=59&grupo=',
+            $token, // Sin codificar
+            $inicio->format('ym'),
+            $inicio->format('d'),
+            $fin->format('ym'),
+            $fin->format('d')
+        );
 
-        return $this->baseUrl . $endpoint . '?' . http_build_query($params);
+        return $this->baseUrl . $endpoint . '?' . $params;
     }
 
     private function procesarDatos($data, $tipoReporte, $fechaReporte, $batchId, $fechaRegistro)
     {
-        if (empty($data)) {
-            Log::warning("Datos vacíos para {$tipoReporte}");
-            return 0;
-        }
-
         $lineas = explode('?', $data);
         $registrosGuardados = 0;
 
@@ -222,9 +137,10 @@ class ReporteFlotaService
 
             $campos = explode('|', $linea);
 
-            // Skip header
-            if (isset($campos[0]) && $campos[0] === 'PLACA') continue;
-            if (count($campos) < 8) continue;
+            // Skip header line
+            if ($campos[0] === 'PLACA' || count($campos) < 8) {
+                continue;
+            }
 
             try {
                 if ($tipoReporte === 'excesos') {
@@ -234,7 +150,7 @@ class ReporteFlotaService
                 }
                 $registrosGuardados++;
             } catch (\Exception $e) {
-                Log::warning("Error línea {$index}: " . $e->getMessage());
+                Log::warning("Error procesando línea {$index}: " . $e->getMessage());
                 continue;
             }
         }
@@ -284,9 +200,11 @@ class ReporteFlotaService
     private function parsearFecha($fechaStr)
     {
         if (empty($fechaStr)) return null;
+
         try {
             return Carbon::parse($fechaStr);
         } catch (\Exception $e) {
+            Log::warning("Error parseando fecha: {$fechaStr}");
             return null;
         }
     }
@@ -319,7 +237,7 @@ class ReporteFlotaService
 
     public function validarToken($token, $fecha = null)
     {
-        return true;
+        return true; // Simplificado para evitar timeouts adicionales
     }
 
     public function obtenerEstadisticas()
@@ -367,42 +285,34 @@ class ReporteFlotaService
         });
     }
 
-    // MÉTODO DE EMERGENCIA - Si todo falla, usar este endpoint
-    public function obtenerPorEndpointDeEmergencia($fechaInicio, $fechaFin, $token = null)
+    // Método de debug para probar conectividad
+    public function testConectividad($token = null)
     {
         $tokenActivo = $token ?? $this->obtenerTokenActivo();
-        $batchId = Str::uuid();
+        $url = $this->construirUrl('RP131BodyExcesos.rep', '2025-08-20', '2025-08-20', $tokenActivo);
 
-        // Crear una URL de prueba simple
-        $urlPrueba = "https://httpbin.org/post";
+        try {
+            $response = Http::timeout(10)->get($url);
 
-        $datosParaEnviar = [
-            'url_original' => $this->construirUrl('RP131BodyExcesos.rep', $fechaInicio, $fechaFin, $tokenActivo),
-            'token' => $tokenActivo,
-            'fecha_inicio' => $fechaInicio,
-            'fecha_fin' => $fechaFin
-        ];
-
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $urlPrueba,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($datosParaEnviar),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        ]);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        Log::info("Endpoint de emergencia respuesta: " . $response);
-
-        return [
-            'excesos' => 0,
-            'limites' => 0,
-            'batch_id' => $batchId,
-            'message' => 'Modo de emergencia - revisa logs'
-        ];
+            return [
+                'success' => $response->successful(),
+                'status' => $response->status(),
+                'has_data' => isset($response->json()['data']),
+                'content_length' => strlen($response->body()),
+                'url' => substr($url, 0, 100) . '...'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'url' => substr($url, 0, 100) . '...'
+            ];
+        }
     }
+
+    public function procesarDatosManual($data, $tipoReporte, $fechaReporte, $batchId, $fechaRegistro)
+    {
+        return $this->procesarDatos($data, $tipoReporte, $fechaReporte, $batchId, $fechaRegistro);
+    }
+
 }

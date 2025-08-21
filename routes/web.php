@@ -114,10 +114,8 @@ Route::middleware('auth', 'verified')->group(function () {
         Route::post('/actualizar-token', [ReporteFlotaController::class, 'actualizarToken'])->name('actualizar-token');
         Route::post('/validar-token', [ReporteFlotaController::class, 'validarToken'])->name('validar-token');
         Route::get('/ultimo', [ReporteFlotaController::class, 'obtenerUltimoReporte'])->name('ultimo');
-        Route::get('/test-conectividad', function() {
-            $service = new \App\Services\ReporteFlotaService();
-            return $service->testConectividad();
-        });
+
+        Route::post('/procesar-manual', [ReporteFlotaController::class, 'procesarManual'])->name('procesar-manual');
     });
 
 

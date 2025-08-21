@@ -57,7 +57,11 @@
                             <i class="ki-filled ki-calendar text-success text-base"></i>
                         </div>
                         <div class="text-sm font-medium text-gray-900 mb-1" id="ultimo-exceso">
-                            {{ $estadisticas['ultimo_exceso']->fecha_registro->format('d/m/Y') ?? 'N/A' }}
+                            @if($estadisticas['ultimo_exceso'])
+                                {{ $estadisticas['ultimo_exceso']->fecha_registro->format('d/m/Y') }}
+                            @else
+                                N/A
+                            @endif
                         </div>
                         <div class="text-2sm text-gray-600">Último Exceso</div>
                     </div>
@@ -69,7 +73,11 @@
                             <i class="ki-filled ki-calendar-2 text-info text-base"></i>
                         </div>
                         <div class="text-sm font-medium text-gray-900 mb-1" id="ultimo-limite">
-                            {{ $estadisticas['ultimo_limite']->fecha_registro->format('d/m/Y') ?? 'N/A' }}
+                            @if($estadisticas['ultimo_limite'])
+                                {{ $estadisticas['ultimo_limite']->fecha_registro->format('d/m/Y') }}
+                            @else
+                                N/A
+                            @endif
                         </div>
                         <div class="text-2sm text-gray-600">Último Límite</div>
                     </div>
@@ -147,34 +155,140 @@
                     <h3 class="card-title">Obtener Reportes</h3>
                 </div>
                 <div class="card-body">
-                    <form id="form-reportes" class="grid gap-5">
-                        <div class="grid lg:grid-cols-4 gap-5">
-                            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-                                <label class="form-label max-w-28">Fecha Inicio</label>
-                                <input type="date" class="input" id="fecha_inicio" name="fecha_inicio"
-                                       value="{{ Carbon\Carbon::yesterday()->format('Y-m-d') }}" required>
-                            </div>
+                    <!-- Pestañas -->
+                    <div class="flex border-b border-gray-200 mb-5">
+                        <button class="tab-btn active px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary" onclick="cambiarTab('automatico')">
+                            Automático
+                        </button>
+                        <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" onclick="cambiarTab('manual')">
+                            Manual
+                        </button>
+                    </div>
 
-                            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-                                <label class="form-label max-w-28">Fecha Fin</label>
-                                <input type="date" class="input" id="fecha_fin" name="fecha_fin"
-                                       value="{{ Carbon\Carbon::yesterday()->format('Y-m-d') }}" required>
-                            </div>
+                    <!-- Tab Automático -->
+                    <div id="tab-automatico" class="tab-content">
+                        <form id="form-reportes" class="grid gap-5">
+                            <div class="grid lg:grid-cols-4 gap-5">
+                                <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
+                                    <label class="form-label max-w-28">Fecha Inicio</label>
+                                    <input type="date" class="input" id="fecha_inicio" name="fecha_inicio"
+                                           value="{{ Carbon\Carbon::yesterday()->format('Y-m-d') }}" required>
+                                </div>
 
-                            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-                                <label class="form-label max-w-28">Token (Opcional)</label>
-                                <input type="text" class="input" id="nuevo_token"
-                                       placeholder="Solo si necesitas actualizar">
-                            </div>
+                                <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
+                                    <label class="form-label max-w-28">Fecha Fin</label>
+                                    <input type="date" class="input" id="fecha_fin" name="fecha_fin"
+                                           value="{{ Carbon\Carbon::yesterday()->format('Y-m-d') }}" required>
+                                </div>
 
-                            <div class="flex items-end">
-                                <button type="button" class="btn btn-primary" onclick="obtenerReportes()">
-                                    <i class="ki-filled ki-cloud-download"></i>
-                                    Obtener Reportes
+                                <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
+                                    <label class="form-label max-w-28">Token (Opcional)</label>
+                                    <input type="text" class="input" id="nuevo_token"
+                                           placeholder="Solo si necesitas actualizar">
+                                </div>
+
+                                <div class="flex items-end">
+                                    <button type="button" class="btn btn-primary" onclick="obtenerReportes()">
+                                        <i class="ki-filled ki-cloud-download"></i>
+                                        Obtener Reportes
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Tab Manual -->
+                    <div id="tab-manual" class="tab-content hidden">
+                        <div class="grid gap-5">
+                            <!-- Paso 1: Generar URLs -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <h4 class="font-medium text-blue-900 mb-3">Paso 1: Generar URLs</h4>
+                                <div class="grid lg:grid-cols-4 gap-3 mb-3">
+                                    <div>
+                                        <label class="form-label">Fecha Inicio</label>
+                                        <input type="date" class="input input-sm" id="fecha_inicio_manual">
+                                    </div>
+                                    <div>
+                                        <label class="form-label">Fecha Fin</label>
+                                        <input type="date" class="input input-sm" id="fecha_fin_manual">
+                                    </div>
+                                    <div class="lg:col-span-2">
+                                        <label class="form-label">Token</label>
+                                        <input type="text" class="input input-sm" id="token_manual" placeholder="Pega tu token aquí">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="generarUrlsManual()">
+                                    <i class="ki-filled ki-code"></i>
+                                    Generar URLs
                                 </button>
                             </div>
+
+                            <!-- URLs Generadas -->
+                            <div id="urls-generadas" class="hidden">
+                                <div class="grid lg:grid-cols-2 gap-4">
+                                    <!-- URL Excesos -->
+                                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                        <h5 class="font-medium text-red-900 mb-2">URL Excesos</h5>
+                                        <div class="flex gap-2 mb-2">
+                                            <input type="text" id="url-excesos" readonly class="input input-sm flex-1 bg-gray-50 text-xs">
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="abrirUrl('url-excesos')">
+                                                <i class="ki-filled ki-external-link"></i>
+                                                Abrir
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-red-700">Haz click en "Abrir", copia el JSON y pégalo abajo</p>
+                                    </div>
+
+                                    <!-- URL Límites -->
+                                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                        <h5 class="font-medium text-orange-900 mb-2">URL Límites</h5>
+                                        <div class="flex gap-2 mb-2">
+                                            <input type="text" id="url-limites" readonly class="input input-sm flex-1 bg-gray-50 text-xs">
+                                            <button type="button" class="btn btn-sm btn-warning" onclick="abrirUrl('url-limites')">
+                                                <i class="ki-filled ki-external-link"></i>
+                                                Abrir
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-orange-700">Haz click en "Abrir", copia el JSON y pégalo abajo</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Paso 2: Procesar JSON -->
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <h4 class="font-medium text-green-900 mb-3">Paso 2: Procesar JSON</h4>
+                                <div class="grid lg:grid-cols-2 gap-4">
+                                    <!-- Excesos JSON -->
+                                    <div>
+                                        <label class="form-label text-red-600">JSON Excesos</label>
+                                        <textarea id="json-excesos" rows="6" class="input input-sm mb-2" placeholder="Pega aquí el JSON de excesos..."></textarea>
+                                        <button type="button" class="btn btn-sm btn-danger w-full" onclick="procesarJsonManual('excesos')">
+                                            <i class="ki-filled ki-check"></i>
+                                            Procesar Excesos
+                                        </button>
+                                        <div id="resultado-excesos" class="mt-2 text-sm"></div>
+                                    </div>
+
+                                    <!-- Límites JSON -->
+                                    <div>
+                                        <label class="form-label text-orange-600">JSON Límites</label>
+                                        <textarea id="json-limites" rows="6" class="input input-sm mb-2" placeholder="Pega aquí el JSON de límites..."></textarea>
+                                        <button type="button" class="btn btn-sm btn-warning w-full" onclick="procesarJsonManual('limites')">
+                                            <i class="ki-filled ki-check"></i>
+                                            Procesar Límites
+                                        </button>
+                                        <div id="resultado-limites" class="mt-2 text-sm"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Resultado Final -->
+                            <div id="resultado-manual-final" class="hidden bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                                <h4 class="font-medium text-emerald-900 mb-2">Procesamiento Completado</h4>
+                                <div id="resumen-manual" class="text-emerald-700"></div>
+                            </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
 
@@ -263,6 +377,22 @@
 
             agregarLog('Sistema iniciado correctamente');
             agregarLog('Fechas configuradas para: ' + fechaAyer);
+
+            document.getElementById('token_manual').addEventListener('paste', function(e) {
+                setTimeout(() => {
+                    let valor = this.value;
+                    const valorLimpio = valor.trim()
+                        .replace(/\s+/g, '')
+                        .replace(/%3D/g, '=')
+                        .replace(/\n/g, '')
+                        .replace(/\r/g, '');
+
+                    if (valor !== valorLimpio) {
+                        this.value = valorLimpio;
+                        agregarLog('Token limpiado automáticamente al pegar');
+                    }
+                }, 100);
+            });
         });
 
         function obtenerReportes() {
@@ -308,7 +438,7 @@
                         agregarLog(`✅ ${data.message}`);
                         agregarLog(`📊 Excesos: ${data.data.excesos} registros`);
                         agregarLog(`📊 Límites: ${data.data.limites} registros`);
-                        agregarLog(`🔖 Batch ID: ${data.data.batch_id.substring(0, 8)}...`);
+                        agregarLog(`📖 Batch ID: ${data.data.batch_id.substring(0, 8)}...`);
 
                         actualizarEstadisticas();
                         document.getElementById('nuevo_token').value = '';
@@ -538,7 +668,158 @@
 
         function limpiarLog() {
             document.getElementById('log-actividad').innerHTML = '<div class="text-gray-500">Log limpiado - Esperando actividad...</div>';
-            agregarLog('🧹 Log de actividad limpiado');
+            agregarLog('Log de actividad limpiado');
+        }
+
+        // ============= FUNCIONES PARA MODO MANUAL =============
+
+        function cambiarTab(tab) {
+            // Ocultar todos los tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Mostrar tab seleccionado
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+
+            // Actualizar estilos de botones
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'border-primary', 'text-primary');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            event.target.classList.add('active', 'border-primary', 'text-primary');
+            event.target.classList.remove('border-transparent', 'text-gray-500');
+
+            // Configurar fechas por defecto si es el primer uso
+            if (tab === 'manual') {
+                const ayer = new Date();
+                ayer.setDate(ayer.getDate() - 1);
+                const fechaAyer = ayer.toISOString().split('T')[0];
+
+                if (!document.getElementById('fecha_inicio_manual').value) {
+                    document.getElementById('fecha_inicio_manual').value = fechaAyer;
+                    document.getElementById('fecha_fin_manual').value = fechaAyer;
+                }
+            }
+        }
+
+        function generarUrlsManual() {
+            const url = debugGenerarUrls();
+            if (url) {
+                document.getElementById('url-excesos').value = url;
+                document.getElementById('url-limites').value = url.replace('Excesos', 'Limites');
+                document.getElementById('urls-generadas').classList.remove('hidden');
+                agregarLog('URLs generadas - revisar consola para debug');
+            } else {
+                agregarLog('Error generando URLs - revisar consola');
+            }
+        }
+
+        function construirParametrosManual(fechaInicio, fechaFin, token) {
+            const tokenLimpio = token.trim()
+                .replace(/\s+/g, '')
+                .replace(/%3D/g, '=')
+                .replace(/\n/g, '')
+                .replace(/\r/g, '');
+
+            const inicio = new Date(fechaInicio);
+            const fin = new Date(fechaFin);
+
+            const mesi = (inicio.getFullYear().toString().slice(-2)) + (inicio.getMonth() + 1).toString().padStart(2, '0');
+            const mesf = (fin.getFullYear().toString().slice(-2)) + (fin.getMonth() + 1).toString().padStart(2, '0');
+
+            // NO usar URLSearchParams - construir manualmente
+            const params = `E=${tokenLimpio}&T=0&IMEI=&mesi=${mesi}&diai=${inicio.getDate().toString().padStart(2, '0')}&horai=00&mini=00&mesf=${mesf}&diaf=${fin.getDate().toString().padStart(2, '0')}&horaf=23&minf=59&grupo=`;
+
+            return params;
+        }
+
+        function abrirUrl(inputId) {
+            const url = document.getElementById(inputId).value;
+            if (url) {
+                window.open(url, '_blank');
+                agregarLog(`Abriendo URL: ${inputId.replace('url-', '')}`);
+            }
+        }
+
+        function procesarJsonManual(tipo) {
+            debugProcesarJson();
+            const jsonText = document.getElementById(`json-${tipo}`).value.trim();
+            const resultadoDiv = document.getElementById(`resultado-${tipo}`);
+
+            if (!jsonText) {
+                resultadoDiv.innerHTML = '<span class="text-red-600">Pega el JSON primero</span>';
+                return;
+            }
+
+            try {
+                const data = JSON.parse(jsonText);
+
+                if (!data.data) {
+                    throw new Error('El JSON no tiene el campo "data"');
+                }
+
+                agregarLog(`Procesando JSON ${tipo}...`);
+
+                // Enviar al servidor
+                fetch('{{ route("reportes.procesar-manual") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        tipo: tipo,
+                        data: data.data,
+                        fecha_inicio: document.getElementById('fecha_inicio_manual').value,
+                        fecha_fin: document.getElementById('fecha_fin_manual').value
+                    })
+                })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            resultadoDiv.innerHTML = `<span class="text-green-600">✅ ${result.registros} registros procesados</span>`;
+                            agregarLog(`✅ ${tipo}: ${result.registros} registros guardados`);
+
+                            // Mostrar resultado final si ambos están procesados
+                            mostrarResultadoManualFinal();
+
+                            // Actualizar estadísticas
+                            actualizarEstadisticas();
+                        } else {
+                            resultadoDiv.innerHTML = `<span class="text-red-600">❌ Error: ${result.message}</span>`;
+                            agregarLog(`❌ Error procesando ${tipo}: ${result.message}`);
+                        }
+                    })
+                    .catch(error => {
+                        resultadoDiv.innerHTML = `<span class="text-red-600">❌ Error de conexión</span>`;
+                        agregarLog(`❌ Error de conexión procesando ${tipo}`);
+                    });
+
+            } catch (e) {
+                resultadoDiv.innerHTML = '<span class="text-red-600">❌ JSON inválido</span>';
+                agregarLog(`❌ JSON inválido para ${tipo}`);
+            }
+        }
+
+        function mostrarResultadoManualFinal() {
+            const resultadoExcesos = document.getElementById('resultado-excesos').textContent;
+            const resultadoLimites = document.getElementById('resultado-limites').textContent;
+
+            if (resultadoExcesos.includes('registros procesados') || resultadoLimites.includes('registros procesados')) {
+                const finalDiv = document.getElementById('resultado-manual-final');
+                const resumenDiv = document.getElementById('resumen-manual');
+
+                finalDiv.classList.remove('hidden');
+                resumenDiv.innerHTML = `
+                    <p>Procesamiento manual completado:</p>
+                    <ul class="list-disc list-inside mt-2">
+                        <li>Excesos: ${resultadoExcesos}</li>
+                        <li>Límites: ${resultadoLimites}</li>
+                    </ul>
+                `;
+            }
         }
 
         // Actualizar estadísticas cada 30 segundos
@@ -561,5 +842,104 @@
                 agregarLog('🔴 TOKEN EXPIRADO - Actualiza el token');
             }
         }, 300000); // 5 minutos
+
+        function debugGenerarUrls() {
+            const fechaInicio = document.getElementById('fecha_inicio_manual').value;
+            const fechaFin = document.getElementById('fecha_fin_manual').value;
+            const token = document.getElementById('token_manual').value;
+
+            console.log('=== DEBUG GENERAR URLS ===');
+            console.log('Fecha inicio:', fechaInicio);
+            console.log('Fecha fin:', fechaFin);
+            console.log('Token original:', token);
+            console.log('Token length:', token.length);
+            console.log('Token bytes:', Array.from(token).map(char => char.charCodeAt(0)));
+
+            const tokenLimpio = token.trim()
+                .replace(/\s+/g, '')
+                .replace(/%3D/g, '=')
+                .replace(/\n/g, '')
+                .replace(/\r/g, '');
+
+            console.log('Token limpio:', tokenLimpio);
+            console.log('¿Token cambió?', token !== tokenLimpio);
+
+            // Probar construcción de parámetros
+            try {
+                const params = construirParametrosManual(fechaInicio, fechaFin, tokenLimpio);
+                console.log('Parámetros construidos:', params);
+
+                const baseUrl = 'https://gestiondeflota.boltrack.net/reportes/';
+                const urlCompleta = baseUrl + 'RP131BodyExcesos.rep?' + params;
+                console.log('URL completa:', urlCompleta);
+
+                return urlCompleta;
+            } catch (error) {
+                console.error('Error construyendo URL:', error);
+                return null;
+            }
+        }
+
+        // Función para probar el endpoint manualmente
+        function debugProcesarJson() {
+            const tipo = 'excesos'; // Cambiar a 'limites' para probar límites
+            const jsonText = document.getElementById(`json-${tipo}`).value.trim();
+
+            console.log('=== DEBUG PROCESAR JSON ===');
+            console.log('Tipo:', tipo);
+            console.log('JSON text length:', jsonText.length);
+            console.log('JSON primeros 200 chars:', jsonText.substring(0, 200));
+
+            if (!jsonText) {
+                console.error('No hay JSON');
+                return;
+            }
+
+            try {
+                const data = JSON.parse(jsonText);
+                console.log('JSON parseado correctamente');
+                console.log('Tiene campo data:', !!data.data);
+                console.log('Contenido data:', data.data ? data.data.substring(0, 200) : 'No data');
+
+                // Probar el fetch manualmente
+                const payload = {
+                    tipo: tipo,
+                    data: data.data,
+                    fecha_inicio: document.getElementById('fecha_inicio_manual').value,
+                    fecha_fin: document.getElementById('fecha_fin_manual').value
+                };
+
+                console.log('Payload a enviar:', payload);
+
+                fetch('{{ route("reportes.procesar-manual") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        console.log('Response headers:', response.headers);
+                        return response.text(); // Cambiar a text() para ver qué devuelve
+                    })
+                    .then(text => {
+                        console.log('Response text:', text);
+                        try {
+                            const json = JSON.parse(text);
+                            console.log('Response JSON:', json);
+                        } catch (e) {
+                            console.error('Response no es JSON válido:', e);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error en fetch:', error);
+                    });
+
+            } catch (e) {
+                console.error('Error parseando JSON:', e);
+            }
+        }
     </script>
 </x-app-layout>

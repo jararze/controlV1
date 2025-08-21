@@ -173,4 +173,47 @@ class ReporteFlotaController extends Controller
             ], 500);
         }
     }
+
+    public function procesarManual(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'tipo' => 'required|in:excesos,limites',
+                'data' => 'required|string',
+                'fecha_inicio' => 'required|date',
+                'fecha_fin' => 'required|date'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Datos inválidos'
+                ], 422);
+            }
+
+            $batchId = \Str::uuid();
+            $fechaRegistro = Carbon::now();
+
+            $registros = $this->reporteService->procesarDatosManual(
+                $request->input('data'),
+                $request->input('tipo'),
+                $request->input('fecha_inicio'),
+                $batchId,
+                $fechaRegistro
+            );
+
+            return response()->json([
+                'success' => true,
+                'registros' => $registros,
+                'batch_id' => $batchId,
+                'message' => "Procesados {$registros} registros de {$request->input('tipo')}"
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
