@@ -114,7 +114,8 @@ Route::middleware('auth', 'verified')->group(function () {
         Route::post('/actualizar-token', [ReporteFlotaController::class, 'actualizarToken'])->name('actualizar-token');
         Route::post('/validar-token', [ReporteFlotaController::class, 'validarToken'])->name('validar-token');
         Route::get('/ultimo', [ReporteFlotaController::class, 'obtenerUltimoReporte'])->name('ultimo');
-
+        Route::post('/contar-hoy', [ReporteFlotaController::class, 'contarRegistrosFecha'])->name('contar-hoy');
+        Route::post('/verificar-duplicados', [ReporteFlotaController::class, 'verificarDuplicados'])->name('verificar-duplicados');
         Route::post('/procesar-manual', [ReporteFlotaController::class, 'procesarManual'])->name('procesar-manual');
     });
 

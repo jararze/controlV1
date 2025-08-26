@@ -26,92 +26,185 @@
         <div class="grid gap-5 lg:gap-7.5">
 
             <!-- Estadísticas Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5 lg:gap-7.5 items-stretch">
+            <!-- Estadísticas Cards - 12 cajitas en una fila -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-3 lg:gap-5 items-stretch">
+                <!-- 1. Total Excesos -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div class="flex items-center justify-center size-12 bg-danger-clarity rounded-full mb-3 mx-auto">
-                            <i class="ki-filled ki-triangle text-danger text-base"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-danger-clarity rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-triangle text-danger text-sm"></i>
                         </div>
-                        <div class="text-2xl font-semibold text-gray-900 mb-1" id="total-excesos">
+                        <div class="text-lg font-semibold text-gray-900 mb-1" id="total-excesos">
                             {{ $estadisticas['total_excesos'] ?? 0 }}
                         </div>
-                        <div class="text-2sm text-gray-600">Total Excesos</div>
+                        <div class="text-xs text-gray-600">Excesos</div>
                     </div>
                 </div>
 
+                <!-- 2. Total Límites -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div class="flex items-center justify-center size-12 bg-warning-clarity rounded-full mb-3 mx-auto">
-                            <i class="ki-filled ki-warning-2 text-warning text-base"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-warning-clarity rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-warning-2 text-warning text-sm"></i>
                         </div>
-                        <div class="text-2xl font-semibold text-gray-900 mb-1" id="total-limites">
+                        <div class="text-lg font-semibold text-gray-900 mb-1" id="total-limites">
                             {{ $estadisticas['total_limites'] ?? 0 }}
                         </div>
-                        <div class="text-2sm text-gray-600">Total Límites</div>
+                        <div class="text-xs text-gray-600">Límites</div>
                     </div>
                 </div>
 
+                <!-- 3. Total Conducción Fuera Horario -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div class="flex items-center justify-center size-12 bg-success-clarity rounded-full mb-3 mx-auto">
-                            <i class="ki-filled ki-calendar text-success text-base"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-purple-100 rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-time text-purple-600 text-sm"></i>
                         </div>
-                        <div class="text-sm font-medium text-gray-900 mb-1" id="ultimo-exceso">
+                        <div class="text-lg font-semibold text-gray-900 mb-1" id="total-conduccion">
+                            {{ $estadisticas['total_conduccion_fuera_horario'] ?? 0 }}
+                        </div>
+                        <div class="text-xs text-gray-600">Fuera Horario</div>
+                    </div>
+                </div>
+
+                <!-- 4. Total General -->
+                <div class="card">
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-primary-clarity rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-chart-line text-primary text-sm"></i>
+                        </div>
+                        <div class="text-lg font-semibold text-gray-900 mb-1" id="total-general">
+                            {{ ($estadisticas['total_excesos'] ?? 0) + ($estadisticas['total_limites'] ?? 0) + ($estadisticas['total_conduccion_fuera_horario'] ?? 0) }}
+                        </div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                </div>
+
+                <!-- 5. Último Exceso -->
+                <div class="card">
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-success-clarity rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-calendar text-success text-sm"></i>
+                        </div>
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="ultimo-exceso">
                             @if($estadisticas['ultimo_exceso'])
-                                {{ $estadisticas['ultimo_exceso']->fecha_registro->format('d/m/Y') }}
+                                {{ $estadisticas['ultimo_exceso']->FECHA_EXCESO->format('d/m') ?? 'N/A' }}
                             @else
                                 N/A
                             @endif
                         </div>
-                        <div class="text-2sm text-gray-600">Último Exceso</div>
+                        <div class="text-xs text-gray-600">Últ. Exceso</div>
                     </div>
                 </div>
 
+                <!-- 6. Último Límite -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div class="flex items-center justify-center size-12 bg-info-clarity rounded-full mb-3 mx-auto">
-                            <i class="ki-filled ki-calendar-2 text-info text-base"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-info-clarity rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-calendar-2 text-info text-sm"></i>
                         </div>
-                        <div class="text-sm font-medium text-gray-900 mb-1" id="ultimo-limite">
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="ultimo-limite">
                             @if($estadisticas['ultimo_limite'])
-                                {{ $estadisticas['ultimo_limite']->fecha_registro->format('d/m/Y') }}
+                                {{ $estadisticas['ultimo_limite']->FECHA_ALERTA->format('d/m') ?? 'N/A' }}
                             @else
                                 N/A
                             @endif
                         </div>
-                        <div class="text-2sm text-gray-600">Último Límite</div>
+                        <div class="text-xs text-gray-600">Últ. Límite</div>
                     </div>
                 </div>
 
+                <!-- 7. Última Conducción -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div class="flex items-center justify-center size-12 bg-primary-clarity rounded-full mb-3 mx-auto">
-                            <i class="ki-filled ki-security-user text-primary text-base"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-purple-100 rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-clock text-purple-600 text-sm"></i>
                         </div>
-                        <div class="text-sm font-medium text-gray-900 mb-1" id="estado-token">
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="ultima-conduccion">
+                            @if($estadisticas['ultima_conduccion_fuera_horario'])
+                                {{ $estadisticas['ultima_conduccion_fuera_horario']->fecha_registro->format('d/m') ?? 'N/A' }}
+                            @else
+                                N/A
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-600">Últ. Fuera Hor.</div>
+                    </div>
+                </div>
+
+                <!-- 8. Estado Token -->
+                <div class="card">
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-secondary-clarity rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-security-user text-secondary text-sm"></i>
+                        </div>
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="estado-token">
                             @if($estadisticas['token_actual'])
                                 @if($estadisticas['token_actual']->estaExpirado())
-                                    <span class="badge badge-danger badge-outline">Expirado</span>
+                                    <span class="badge badge-xs badge-danger">Exp</span>
                                 @else
-                                    <span class="badge badge-success badge-outline">Activo</span>
+                                    <span class="badge badge-xs badge-success">OK</span>
                                 @endif
                             @else
-                                <span class="badge badge-warning badge-outline">Sin Token</span>
+                                <span class="badge badge-xs badge-warning">N/A</span>
                             @endif
                         </div>
-                        <div class="text-2sm text-gray-600">Estado Token</div>
+                        <div class="text-xs text-gray-600">Token</div>
                     </div>
                 </div>
 
+                <!-- 9. Tiempo Restante Token -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div class="flex items-center justify-center size-12 bg-secondary-clarity rounded-full mb-3 mx-auto">
-                            <i class="ki-filled ki-time text-secondary text-base"></i>
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-orange-100 rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-hourglass text-orange-600 text-sm"></i>
                         </div>
-                        <div class="text-sm font-medium text-gray-900 mb-1" id="tiempo-restante">
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="tiempo-restante">
                             {{ $estadisticas['token_actual']->tiempo_restante ?? 'N/A' }}
                         </div>
-                        <div class="text-2sm text-gray-600">Tiempo Restante</div>
+                        <div class="text-xs text-gray-600">Tiempo Rest.</div>
+                    </div>
+                </div>
+
+                <!-- 10. Último Batch -->
+                <div class="card">
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-indigo-100 rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-code text-indigo-600 text-sm"></i>
+                        </div>
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="ultimo-batch">
+                            @if(isset($estadisticas['ultimos_batches']) && count($estadisticas['ultimos_batches']) > 0)
+                                {{ Str::limit($estadisticas['ultimos_batches'][0]['batch_id'], 6) }}
+                            @else
+                                N/A
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-600">Últ. Batch</div>
+                    </div>
+                </div>
+
+                <!-- 11. Registros Hoy -->
+                <div class="card">
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-emerald-100 rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-calendar-tick text-emerald-600 text-sm"></i>
+                        </div>
+                        <div class="text-lg font-semibold text-gray-900 mb-1" id="registros-hoy">
+                            0
+                        </div>
+                        <div class="text-xs text-gray-600">Hoy</div>
+                    </div>
+                </div>
+
+                <!-- 12. Estado Sistema -->
+                <div class="card">
+                    <div class="card-body text-center p-3">
+                        <div class="flex items-center justify-center size-10 bg-green-100 rounded-full mb-2 mx-auto">
+                            <i class="ki-filled ki-check-circle text-green-600 text-sm" id="icono-sistema"></i>
+                        </div>
+                        <div class="text-xs font-medium text-gray-900 mb-1" id="estado-sistema">
+                            <span class="badge badge-xs badge-success">OK</span>
+                        </div>
+                        <div class="text-xs text-gray-600">Sistema</div>
                     </div>
                 </div>
             </div>
@@ -130,6 +223,7 @@
                                 <th class="min-w-[120px]">Batch ID</th>
                                 <th class="min-w-[80px]">Excesos</th>
                                 <th class="min-w-[80px]">Límites</th>
+                                <th class="min-w-[80px]">Fuera Horario</th>
                                 <th class="min-w-[80px]">Total</th>
                             </tr>
                             </thead>
@@ -140,6 +234,7 @@
                                     <td><span class="text-2sm text-gray-600">{{ Str::limit($batch['batch_id'], 8) }}</span></td>
                                     <td><span class="badge badge-danger badge-outline">{{ $batch['excesos'] }}</span></td>
                                     <td><span class="badge badge-warning badge-outline">{{ $batch['limites'] }}</span></td>
+                                    <td><span class="badge badge-purple badge-outline">{{ $batch['conduccion_fuera_horario'] }}</span></td>
                                     <td><span class="text-sm font-semibold">{{ $batch['total'] }}</span></td>
                                 </tr>
                             @endforeach
@@ -187,10 +282,14 @@
                                            placeholder="Solo si necesitas actualizar">
                                 </div>
 
-                                <div class="flex items-end">
-                                    <button type="button" class="btn btn-primary" onclick="obtenerReportes()">
+                                <div class="flex items-end gap-2">
+                                    <button type="button" class="btn btn-primary" onclick="verificarYObtenerReportes()">
                                         <i class="ki-filled ki-cloud-download"></i>
                                         Obtener Reportes
+                                    </button>
+                                    <button type="button" class="btn btn-warning btn-sm" onclick="verificarDuplicadosOnly()">
+                                        <i class="ki-filled ki-search"></i>
+                                        Verificar
                                     </button>
                                 </div>
                             </div>
@@ -292,6 +391,72 @@
                 </div>
             </div>
 
+            <div id="debug-urls-automatico" class="card hidden">
+                <div class="card-header">
+                    <h3 class="card-title">URLs Generadas (Debug)</h3>
+                    <button class="btn btn-sm btn-light" onclick="ocultarDebugUrls()">
+                        <i class="ki-filled ki-eye-slash"></i>
+                        Ocultar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="grid lg:grid-cols-2 gap-4">
+                        <!-- URL Excesos -->
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <h5 class="font-medium text-red-900 mb-2">URL Excesos Generada</h5>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="debug-url-excesos" readonly class="input input-sm flex-1 bg-gray-50 text-xs">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="copiarUrl('debug-url-excesos')">
+                                    <i class="ki-filled ki-copy"></i>
+                                    Copiar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline btn-danger" onclick="abrirUrl('debug-url-excesos')">
+                                    <i class="ki-filled ki-external-link"></i>
+                                    Abrir
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- URL Límites -->
+                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                            <h5 class="font-medium text-orange-900 mb-2">URL Límites Generada</h5>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="debug-url-limites" readonly class="input input-sm flex-1 bg-gray-50 text-xs">
+                                <button type="button" class="btn btn-sm btn-warning" onclick="copiarUrl('debug-url-limites')">
+                                    <i class="ki-filled ki-copy"></i>
+                                    Copiar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline btn-warning" onclick="abrirUrl('debug-url-limites')">
+                                    <i class="ki-filled ki-external-link"></i>
+                                    Abrir
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                            <h5 class="font-medium text-purple-900 mb-2">URL Conducción Fuera Horario</h5>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="debug-url-conduccion" readonly class="input input-sm flex-1 bg-gray-50 text-xs">
+                                <button type="button" class="btn btn-sm btn-purple" onclick="copiarUrl('debug-url-conduccion')">
+                                    <i class="ki-filled ki-copy"></i>
+                                    Copiar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline btn-purple" onclick="abrirUrl('debug-url-conduccion')">
+                                    <i class="ki-filled ki-external-link"></i>
+                                    Abrir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información adicional de debug -->
+                    <div id="debug-info" class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                        <h6 class="font-medium text-blue-900 mb-2">Información de Debug</h6>
+                        <div id="debug-detalles" class="text-sm text-blue-700"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Token Management -->
             <div class="card">
                 <div class="card-header">
@@ -348,24 +513,56 @@
     </div>
     <!-- End of Container -->
 
-    <!-- Loading Modal -->
-    <div class="modal" id="loadingModal" data-modal="true" data-modal-backdrop-static="true">
-        <div class="modal-content max-w-[400px] top-1/2 start-1/2 -translate-x-1/2 -translate-y-1/2">
-            <div class="modal-body text-center p-10">
-                <div class="flex justify-center mb-5">
-                    <div class="spinner spinner-ring text-primary"></div>
+    <!-- Loading Modal ARREGLADO -->
+    <div id="loadingModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2rem; border-radius: 8px; text-align: center; max-width: 400px; width: 90%;">
+            <div style="margin-bottom: 1rem;">
+                <!-- Spinner CSS simple -->
+                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <style>
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+            </div>
+            <div style="font-weight: 600; margin-bottom: 0.5rem; color: #333;" id="loading-text">
+                Obteniendo reportes, por favor espere...
+            </div>
+            <div style="color: #666; font-size: 0.9rem;">
+                Este proceso puede tomar varios segundos
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Duplicados NUEVO -->
+    <div id="duplicadosModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2rem; border-radius: 8px; max-width: 600px; width: 90%;">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <div style="width: 40px; height: 40px; background: #fef3c7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                    <span style="color: #d97706; font-size: 1.2rem;">⚠️</span>
                 </div>
-                <div class="text-gray-900 font-medium mb-2" id="loading-text">
-                    Obteniendo reportes, por favor espere...
-                </div>
-                <div class="text-gray-600 text-sm">
-                    Este proceso puede tomar varios segundos
-                </div>
+                <h3 style="margin: 0; color: #333; font-size: 1.2rem;">Registros Duplicados Detectados</h3>
+            </div>
+
+            <div id="duplicados-mensaje" style="margin-bottom: 1.5rem; color: #555; line-height: 1.5;"></div>
+
+            <div id="duplicados-detalles" style="background: #f9fafb; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; font-size: 0.9rem;"></div>
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" onclick="cerrarModalDuplicados()" style="padding: 0.5rem 1rem; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button type="button" onclick="forzarDescarga()" style="padding: 0.5rem 1rem; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Descargar de Todas Formas
+                </button>
             </div>
         </div>
     </div>
 
     <script>
+        let datosFormulario = {};
+
         document.addEventListener('DOMContentLoaded', function() {
             // Configurar fechas por defecto (ayer)
             const ayer = new Date();
@@ -395,7 +592,8 @@
             });
         });
 
-        function obtenerReportes() {
+        // NUEVA FUNCIÓN: Verificar duplicados antes de descargar
+        function verificarYObtenerReportes() {
             const fechaInicio = document.getElementById('fecha_inicio').value;
             const fechaFin = document.getElementById('fecha_fin').value;
             const nuevoToken = document.getElementById('nuevo_token').value;
@@ -405,19 +603,17 @@
                 return;
             }
 
-            // Mostrar modal de carga
-            const modal = document.getElementById('loadingModal');
-            modal.classList.add('open');
+            // Guardar datos del formulario para uso posterior
+            datosFormulario = {
+                fecha_inicio: fechaInicio.trim(),
+                fecha_fin: fechaFin.trim(),
+                token: nuevoToken ? nuevoToken.trim() : ''
+            };
 
-            document.getElementById('loading-text').textContent = 'Iniciando descarga de reportes...';
-            agregarLog('Iniciando descarga de reportes...');
-            agregarLog(`Rango: ${fechaInicio} a ${fechaFin}`);
+            console.log('Datos guardados para posible descarga forzada:', datosFormulario);
+            agregarLog('Verificando duplicados...');
 
-            if (nuevoToken) {
-                agregarLog('Usando nuevo token proporcionado');
-            }
-
-            fetch('{{ route("reportes.obtener") }}', {
+            fetch('{{ route("reportes.verificar-duplicados") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -425,38 +621,349 @@
                 },
                 body: new URLSearchParams({
                     fecha_inicio: fechaInicio,
-                    fecha_fin: fechaFin,
-                    token: nuevoToken || ''
+                    fecha_fin: fechaFin
                 })
             })
                 .then(response => response.json())
                 .then(data => {
-                    modal.classList.remove('open');
+                    if (data.success && data.tiene_duplicados) {
+                        // Mostrar modal de duplicados
+                        mostrarModalDuplicados(data.mensaje, data.detalles);
+                    } else {
+                        // No hay duplicados, proceder con descarga normal
+                        ejecutarDescarga(false);
+                    }
+                })
+                .catch(error => {
+                    agregarLog('Error verificando duplicados, procediendo con descarga...');
+                    ejecutarDescarga(false);
+                });
+        }
+
+        // NUEVA FUNCIÓN: Solo verificar duplicados sin descargar
+        function verificarDuplicadosOnly() {
+            const fechaInicio = document.getElementById('fecha_inicio').value;
+            const fechaFin = document.getElementById('fecha_fin').value;
+
+            if (!fechaInicio || !fechaFin) {
+                mostrarAlerta('Por favor selecciona las fechas', 'warning');
+                return;
+            }
+
+            agregarLog('Verificando duplicados...');
+
+            fetch('{{ route("reportes.verificar-duplicados") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: new URLSearchParams({
+                    fecha_inicio: fechaInicio,
+                    fecha_fin: fechaFin
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.tiene_duplicados) {
+                            mostrarAlerta(`Duplicados encontrados: ${data.mensaje}`, 'warning');
+                            agregarLog(`⚠️ ${data.mensaje}`);
+                        } else {
+                            mostrarAlerta('No se encontraron duplicados. Puedes proceder con la descarga.', 'success');
+                            agregarLog('✅ No hay duplicados para estas fechas');
+                        }
+                    }
+                })
+                .catch(error => {
+                    mostrarAlerta('Error verificando duplicados', 'danger');
+                    agregarLog('❌ Error verificando duplicados');
+                });
+        }
+
+        // NUEVA FUNCIÓN: Mostrar modal de duplicados
+        function mostrarModalDuplicados(mensaje, detalles) {
+            document.getElementById('duplicados-mensaje').innerHTML = mensaje;
+
+            let detallesHtml = `
+                <strong>Detalles de registros existentes:</strong><br>
+                • Excesos: ${detalles.excesos}<br>
+                • Límites: ${detalles.limites}<br>
+                • Total: ${detalles.total_registros}<br>
+                • Rango: ${detalles.fecha_inicio} - ${detalles.fecha_fin}
+            `;
+
+            if (detalles.batches_existentes && detalles.batches_existentes.length > 0) {
+                detallesHtml += '<br><br><strong>Batches existentes:</strong><br>';
+                detalles.batches_existentes.forEach(batch => {
+                    detallesHtml += `• ${batch.batch_id} - ${batch.fecha_registro}<br>`;
+                });
+            }
+
+            document.getElementById('duplicados-detalles').innerHTML = detallesHtml;
+            document.getElementById('duplicadosModal').style.display = 'block';
+
+            agregarLog('⚠️ Duplicados detectados - mostrando opciones al usuario');
+        }
+
+        // NUEVA FUNCIÓN: Cerrar modal de duplicados
+        function cerrarModalDuplicados() {
+            document.getElementById('duplicadosModal').style.display = 'none';
+            agregarLog('Modal de duplicados cerrado');
+        }
+
+        // NUEVA FUNCIÓN: Forzar descarga ignorando duplicados
+        function forzarDescarga() {
+            cerrarModalDuplicados();
+            agregarLog('Usuario eligió forzar descarga...');
+
+            // CORRECCIÓN: Validar que tenemos los datos necesarios
+            if (!datosFormulario || !datosFormulario.fecha_inicio || !datosFormulario.fecha_fin) {
+                console.error('No hay datos del formulario guardados para forzar descarga');
+                agregarLog('Error: No hay datos guardados para forzar descarga');
+
+                // Intentar obtener datos del formulario actual
+                const fechaInicio = document.getElementById('fecha_inicio').value;
+                const fechaFin = document.getElementById('fecha_fin').value;
+                const nuevoToken = document.getElementById('nuevo_token').value;
+
+                if (!fechaInicio || !fechaFin) {
+                    mostrarAlerta('Error: No se pueden recuperar las fechas del formulario', 'danger');
+                    return;
+                }
+
+                // Recrear datosFormulario
+                datosFormulario = {
+                    fecha_inicio: fechaInicio.trim(),
+                    fecha_fin: fechaFin.trim(),
+                    token: nuevoToken ? nuevoToken.trim() : ''
+                };
+
+                agregarLog('Datos del formulario recuperados del DOM');
+            }
+
+            console.log('Ejecutando descarga forzada con datos:', datosFormulario);
+            ejecutarDescarga(true);
+        }
+
+        // FUNCIÓN MEJORADA: Ejecutar descarga con opción de forzar
+        function ejecutarDescarga(forzar = false) {
+            // CORRECCIÓN: Obtener datos de manera más robusta
+            let fechaInicio, fechaFin, nuevoToken;
+
+            if (forzar && datosFormulario && datosFormulario.fecha_inicio) {
+                // Para descarga forzada, usar datos guardados
+                fechaInicio = datosFormulario.fecha_inicio;
+                fechaFin = datosFormulario.fecha_fin;
+                nuevoToken = datosFormulario.token;
+                console.log('Usando datos guardados para descarga forzada:', datosFormulario);
+            } else {
+                // Para descarga normal, obtener del DOM
+                fechaInicio = document.getElementById('fecha_inicio').value;
+                fechaFin = document.getElementById('fecha_fin').value;
+                nuevoToken = document.getElementById('nuevo_token').value;
+                console.log('Usando datos del DOM para descarga normal');
+            }
+
+            // DEBUG detallado
+            console.log('=== DEBUG EJECUTAR DESCARGA ===');
+            console.log('forzar:', forzar);
+            console.log('fechaInicio:', fechaInicio, typeof fechaInicio);
+            console.log('fechaFin:', fechaFin, typeof fechaFin);
+            console.log('nuevoToken:', nuevoToken ? '[PRESENTE]' : '[VACÍO]');
+
+            // Validación
+            if (!fechaInicio || !fechaFin) {
+                console.error('Fechas faltantes');
+                mostrarAlerta('Error: Fechas requeridas', 'danger');
+                return;
+            }
+
+            // Limpiar datos (eliminar espacios)
+            fechaInicio = fechaInicio.trim();
+            fechaFin = fechaFin.trim();
+            nuevoToken = nuevoToken ? nuevoToken.trim() : '';
+
+            // Validar formato de fecha
+            if (!fechaInicio.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                console.error('Formato de fecha inicio inválido:', fechaInicio);
+                mostrarAlerta('Formato de fecha inicio inválido', 'danger');
+                return;
+            }
+
+            if (!fechaFin.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                console.error('Formato de fecha fin inválido:', fechaFin);
+                mostrarAlerta('Formato de fecha fin inválido', 'danger');
+                return;
+            }
+
+            // Mostrar modal de carga
+            mostrarModalCarga();
+
+            const textoModo = forzar ? 'forzada (ignorando duplicados)' : 'normal';
+            document.getElementById('loading-text').textContent = `Iniciando descarga ${textoModo}...`;
+            agregarLog(`Iniciando descarga ${textoModo}...`);
+            agregarLog(`Rango: ${fechaInicio} a ${fechaFin}`);
+
+            if (nuevoToken) {
+                agregarLog('Usando nuevo token proporcionado');
+            }
+
+            // CORRECCIÓN: Construir parámetros de manera más explícita
+            const parametros = new URLSearchParams();
+            parametros.append('fecha_inicio', fechaInicio);
+            parametros.append('fecha_fin', fechaFin);
+            parametros.append('token', nuevoToken);
+
+            // IMPORTANTE: Para forzar, enviar como string, no boolean
+            if (forzar) {
+                parametros.append('forzar', '1');
+            } else {
+                parametros.append('forzar', '0');
+            }
+
+            console.log('Parámetros finales:', parametros.toString());
+
+            fetch('{{ route("reportes.obtener") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: parametros
+            })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', [...response.headers.entries()]);
+                    return response.text();
+                })
+                .then(responseText => {
+                    console.log('Response text:', responseText);
+
+                    let data;
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        console.error('Error parseando JSON:', jsonError);
+                        console.log('Response que causó error:', responseText);
+                        throw new Error('Respuesta del servidor no es JSON válido');
+                    }
+
+                    ocultarModalCarga();
 
                     if (data.success) {
-                        mostrarAlerta(data.message, 'success');
+                        const modoTexto = data.forzada ? ' (FORZADA)' : '';
+                        mostrarAlerta(data.message + modoTexto, 'success');
                         agregarLog(`✅ ${data.message}`);
                         agregarLog(`📊 Excesos: ${data.data.excesos} registros`);
                         agregarLog(`📊 Límites: ${data.data.limites} registros`);
+                        agregarLog(`📊 Fuera de horario: ${data.data.conduccion_fuera_horario} registros`);
                         agregarLog(`📖 Batch ID: ${data.data.batch_id.substring(0, 8)}...`);
+
+                        if (data.data.debug_urls) {
+                            mostrarDebugUrls(data.data.debug_urls, fechaInicio, fechaFin);
+                            agregarLog('🔍 URLs de debug mostradas');
+                        }
+
+                        if (data.forzada) {
+                            agregarLog('⚠️ DESCARGA FORZADA - Se ignoraron duplicados');
+                        }
 
                         actualizarEstadisticas();
                         document.getElementById('nuevo_token').value = '';
 
+                        // Limpiar datos guardados después de uso exitoso
+                        datosFormulario = {};
+
                         setTimeout(() => {
                             mostrarResumenDescarga(data.data);
                         }, 1000);
+                    } else if (data.duplicados_detectados) {
+                        mostrarModalDuplicados(data.message, data.detalles_duplicados);
                     } else {
                         mostrarAlerta(data.message, 'danger');
                         agregarLog(`❌ Error: ${data.message}`);
+
+                        // Mostrar errores de validación si existen
+                        if (data.errors) {
+                            console.error('Errores de validación:', data.errors);
+                            Object.keys(data.errors).forEach(field => {
+                                agregarLog(`❌ ${field}: ${data.errors[field].join(', ')}`);
+                            });
+                        }
+
+                        if (data.debug_data) {
+                            console.log('Debug data del servidor:', data.debug_data);
+                        }
                     }
                 })
                 .catch(error => {
-                    modal.classList.remove('open');
+                    ocultarModalCarga();
+                    console.error('Error en fetch:', error);
                     const mensaje = error.message || 'Error desconocido';
                     mostrarAlerta(`Error: ${mensaje}`, 'danger');
                     agregarLog(`❌ Error: ${mensaje}`);
                 });
+        }
+
+        function mostrarDebugUrls(urls, fechaInicio, fechaFin) {
+            document.getElementById('debug-url-excesos').value = urls.excesos;
+            document.getElementById('debug-url-limites').value = urls.limites;
+
+            if (urls.conduccion_fuera_horario && document.getElementById('debug-url-conduccion')) {
+                document.getElementById('debug-url-conduccion').value = urls.conduccion_fuera_horario;
+            }
+
+            const fechaInicioObj = new Date(fechaInicio);
+            const fechaFinObj = new Date(fechaFin);
+
+            document.getElementById('debug-detalles').innerHTML = `
+                <div class="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <strong>Fechas solicitadas:</strong><br>
+                        • Inicio: ${fechaInicio} (${fechaInicioObj.toLocaleDateString('es-ES')})<br>
+                        • Fin: ${fechaFin} (${fechaFinObj.toLocaleDateString('es-ES')})
+                    </div>
+                    <div>
+                        <strong>URLs generadas:</strong><br>
+                        • Excesos: ${urls.excesos.length > 100 ? urls.excesos.substring(0, 100) + '...' : urls.excesos}<br>
+                        • Límites: ${urls.limites.length > 100 ? urls.limites.substring(0, 100) + '...' : urls.limites}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('debug-urls-automatico').classList.remove('hidden');
+
+            // Auto-scroll hacia el debug
+            setTimeout(() => {
+                document.getElementById('debug-urls-automatico').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest'
+                });
+            }, 500);
+        }
+
+        function ocultarDebugUrls() {
+            document.getElementById('debug-urls-automatico').classList.add('hidden');
+        }
+
+        function copiarUrl(inputId) {
+            const input = document.getElementById(inputId);
+            input.select();
+            document.execCommand('copy');
+
+            const tipo = inputId.includes('excesos') ? 'excesos' : 'límites';
+            mostrarAlerta(`URL de ${tipo} copiada al portapapeles`, 'success');
+            agregarLog(`📋 URL de ${tipo} copiada`);
+        }
+
+        // FUNCIONES AUXILIARES PARA EL MODAL ARREGLADO
+        function mostrarModalCarga() {
+            document.getElementById('loadingModal').style.display = 'block';
+        }
+
+        function ocultarModalCarga() {
+            document.getElementById('loadingModal').style.display = 'none';
         }
 
         function actualizarToken() {
@@ -540,35 +1047,61 @@
                     if (data.success) {
                         const estadisticas = data.data;
 
-                        // Actualizar contadores
-                        document.getElementById('total-excesos').textContent = estadisticas.total_excesos || 0;
-                        document.getElementById('total-limites').textContent = estadisticas.total_limites || 0;
+                        // 1-4: Contadores principales
+                        const totalExcesos = estadisticas.total_excesos || 0;
+                        const totalLimites = estadisticas.total_limites || 0;
+                        const totalConduccion = estadisticas.total_conduccion_fuera_horario || 0;
+                        const totalGeneral = totalExcesos + totalLimites + totalConduccion;
 
-                        // Actualizar fechas
+                        document.getElementById('total-excesos').textContent = totalExcesos;
+                        document.getElementById('total-limites').textContent = totalLimites;
+                        document.getElementById('total-conduccion').textContent = totalConduccion;
+                        document.getElementById('total-general').textContent = totalGeneral;
+
+                        // 5-7: Últimas fechas (formato corto d/m)
                         document.getElementById('ultimo-exceso').textContent =
-                            estadisticas.ultimo_exceso?.fecha_registro ?
-                                new Date(estadisticas.ultimo_exceso.fecha_registro).toLocaleDateString('es-ES') : 'N/A';
+                            estadisticas.ultimo_exceso?.FECHA_EXCESO ?
+                                new Date(estadisticas.ultimo_exceso.FECHA_EXCESO).toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'}) : 'N/A';
 
                         document.getElementById('ultimo-limite').textContent =
-                            estadisticas.ultimo_limite?.fecha_registro ?
-                                new Date(estadisticas.ultimo_limite.fecha_registro).toLocaleDateString('es-ES') : 'N/A';
+                            estadisticas.ultimo_limite?.FECHA_ALERTA ?
+                                new Date(estadisticas.ultimo_limite.FECHA_ALERTA).toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'}) : 'N/A';
 
-                        // Actualizar estado del token
+                        document.getElementById('ultima-conduccion').textContent =
+                            estadisticas.ultima_conduccion_fuera_horario?.fecha_registro ?
+                                new Date(estadisticas.ultima_conduccion_fuera_horario.fecha_registro).toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'}) : 'N/A';
+
+                        // 8-9: Estado del token
                         const estadoTokenEl = document.getElementById('estado-token');
                         const tiempoRestanteEl = document.getElementById('tiempo-restante');
 
                         const token = estadisticas.token_actual;
                         if (token) {
                             if (token.esta_expirado) {
-                                estadoTokenEl.innerHTML = '<span class="badge badge-danger badge-outline">Expirado</span>';
+                                estadoTokenEl.innerHTML = '<span class="badge badge-xs badge-danger">Exp</span>';
                             } else {
-                                estadoTokenEl.innerHTML = '<span class="badge badge-success badge-outline">Activo</span>';
+                                estadoTokenEl.innerHTML = '<span class="badge badge-xs badge-success">OK</span>';
                             }
                             tiempoRestanteEl.textContent = token.tiempo_restante || 'N/A';
                         } else {
-                            estadoTokenEl.innerHTML = '<span class="badge badge-warning badge-outline">Sin Token</span>';
+                            estadoTokenEl.innerHTML = '<span class="badge badge-xs badge-warning">N/A</span>';
                             tiempoRestanteEl.textContent = 'N/A';
                         }
+
+                        // 10: Último batch
+                        const ultimoBatchEl = document.getElementById('ultimo-batch');
+                        if (estadisticas.ultimos_batches && estadisticas.ultimos_batches.length > 0) {
+                            const batchId = estadisticas.ultimos_batches[0].batch_id;
+                            ultimoBatchEl.textContent = batchId.substring(0, 6) + '..';
+                        } else {
+                            ultimoBatchEl.textContent = 'N/A';
+                        }
+
+                        // 11: Registros de hoy
+                        calcularRegistrosHoy();
+
+                        // 12: Estado del sistema
+                        actualizarEstadoSistema(token);
 
                         // Actualizar tabla de batches
                         actualizarTablaBatches(estadisticas.ultimos_batches);
@@ -578,6 +1111,9 @@
                 })
                 .catch(error => {
                     agregarLog('❌ Error al actualizar estadísticas');
+                    // Marcar sistema como error
+                    document.getElementById('estado-sistema').innerHTML = '<span class="badge badge-xs badge-danger">Error</span>';
+                    document.getElementById('icono-sistema').className = 'ki-filled ki-cross-circle text-red-600 text-sm';
                 });
         }
 
@@ -596,58 +1132,132 @@
                     <td><span class="text-2sm text-gray-600">${batchId}</span></td>
                     <td><span class="badge badge-danger badge-outline">${batch.excesos}</span></td>
                     <td><span class="badge badge-warning badge-outline">${batch.limites}</span></td>
+                    <td><span class="badge badge-purple badge-outline">${batch.conduccion_fuera_horario}</span></td>
                     <td><span class="text-sm font-semibold">${batch.total}</span></td>
                 `;
                     tbody.appendChild(row);
                 });
             } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500">No hay batches recientes</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500">No hay batches recientes</td></tr>';
             }
         }
 
+        function calcularRegistrosHoy() {
+            const hoy = new Date().toISOString().split('T')[0];
+
+            // Esto requeriría un endpoint específico, por ahora usar placeholder
+            fetch('{{ route("reportes.contar-hoy") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: new URLSearchParams({fecha: hoy})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('registros-hoy').textContent = data.total || 0;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('registros-hoy').textContent = '0';
+                });
+        }
+
+        // NUEVA FUNCIÓN: Actualizar estado del sistema
+        function actualizarEstadoSistema(token) {
+            const estadoEl = document.getElementById('estado-sistema');
+            const iconoEl = document.getElementById('icono-sistema');
+
+            let estado = 'OK';
+            let clase = 'success';
+            let icono = 'ki-check-circle text-green-600';
+
+            // Verificar estado del token
+            if (!token) {
+                estado = 'Sin Token';
+                clase = 'warning';
+                icono = 'ki-warning-2 text-yellow-600';
+            } else if (token.esta_expirado) {
+                estado = 'Token Exp';
+                clase = 'danger';
+                icono = 'ki-cross-circle text-red-600';
+            }
+
+            // Verificar conectividad (basado en última actualización exitosa)
+            const ahora = new Date();
+            const ultimaActualizacion = localStorage.getItem('ultima_actualizacion');
+            if (ultimaActualizacion) {
+                const diffMinutos = (ahora - new Date(ultimaActualizacion)) / (1000 * 60);
+                if (diffMinutos > 5) { // Más de 5 minutos sin actualizar
+                    estado = 'Desconect';
+                    clase = 'danger';
+                    icono = 'ki-cross-circle text-red-600';
+                }
+            }
+
+            estadoEl.innerHTML = `<span class="badge badge-xs badge-${clase}">${estado}</span>`;
+            iconoEl.className = `ki-filled ${icono} text-sm`;
+
+            // Guardar timestamp de esta actualización
+            localStorage.setItem('ultima_actualizacion', ahora.toISOString());
+        }
+
         function mostrarResumenDescarga(data) {
-            const total = data.excesos + data.limites;
+            const total = data.excesos + data.limites + (data.conduccion_fuera_horario || 0);
             if (total > 0) {
-                agregarLog(`📈 RESUMEN DE DESCARGA:`);
+                agregarLog('📈 RESUMEN DE DESCARGA:');
                 agregarLog(`   └── Excesos: ${data.excesos} registros`);
                 agregarLog(`   └── Límites: ${data.limites} registros`);
+                agregarLog(`   └── Fuera de horario: ${data.conduccion_fuera_horario || 0} registros`);
                 agregarLog(`   └── Total: ${total} registros`);
                 agregarLog(`   └── Batch: ${data.batch_id.substring(0, 8)}...`);
             }
         }
 
         function mostrarAlerta(mensaje, tipo) {
-            // Crear toast notification
-            const toast = document.createElement('div');
-            toast.className = `alert alert-${tipo} alert-dismissible mb-5`;
-            toast.innerHTML = `
-            <div class="alert-icon">
-                <i class="ki-filled ki-information-5"></i>
-            </div>
-            <div class="alert-wrapper">
-                <div class="alert-title">${tipo === 'success' ? 'Éxito' : 'Aviso'}</div>
-                <div class="alert-content">${mensaje}</div>
-            </div>
-            <button class="btn btn-sm btn-icon btn-light alert-close">
-                <i class="ki-filled ki-cross"></i>
-            </button>
-        `;
+            // Crear toast notification simple
+            const alertaDiv = document.createElement('div');
+            const tipoColor = {
+                'success': '#10b981',
+                'danger': '#ef4444',
+                'warning': '#f59e0b',
+                'info': '#3b82f6'
+            };
 
-            // Insertar al inicio del container
-            const container = document.querySelector('.container-fluid');
-            container.insertBefore(toast, container.firstChild);
+            alertaDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: white;
+                border-left: 4px solid ${tipoColor[tipo] || '#6b7280'};
+                padding: 1rem;
+                border-radius: 4px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                z-index: 10000;
+                max-width: 400px;
+                word-wrap: break-word;
+            `;
+
+            alertaDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">${tipo === 'success' ? 'Éxito' : 'Aviso'}</div>
+                        <div style="color: #666; font-size: 0.9rem;">${mensaje}</div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #999;">×</button>
+                </div>
+            `;
+
+            document.body.appendChild(alertaDiv);
 
             // Auto-remove después de 5 segundos
             setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.remove();
+                if (alertaDiv.parentNode) {
+                    alertaDiv.remove();
                 }
             }, 5000);
-
-            // Handle manual close
-            toast.querySelector('.alert-close').addEventListener('click', () => {
-                toast.remove();
-            });
         }
 
         function agregarLog(mensaje) {
@@ -726,11 +1336,20 @@
             const inicio = new Date(fechaInicio);
             const fin = new Date(fechaFin);
 
-            const mesi = (inicio.getFullYear().toString().slice(-2)) + (inicio.getMonth() + 1).toString().padStart(2, '0');
-            const mesf = (fin.getFullYear().toString().slice(-2)) + (fin.getMonth() + 1).toString().padStart(2, '0');
+            // CORREGIDO: Usar el mismo formato que el servicio
+            const añoInicio = inicio.getFullYear().toString().slice(-2); // Últimos 2 dígitos del año
+            const mesInicio = (inicio.getMonth() + 1).toString().padStart(2, '0'); // Mes con 2 dígitos
+            const mesi = añoInicio + mesInicio;
+
+            const añoFin = fin.getFullYear().toString().slice(-2);
+            const mesFin = (fin.getMonth() + 1).toString().padStart(2, '0');
+            const mesf = añoFin + mesFin;
+
+            console.log(`DEBUG MANUAL: ${fechaInicio} -> mesi=${mesi} (año: ${añoInicio}, mes: ${mesInicio})`);
+            console.log(`DEBUG MANUAL: ${fechaFin} -> mesf=${mesf} (año: ${añoFin}, mes: ${mesFin})`);
 
             // NO usar URLSearchParams - construir manualmente
-            const params = `E=${tokenLimpio}&T=0&IMEI=&mesi=${mesi}&diai=${inicio.getDate().toString().padStart(2, '0')}&horai=00&mini=00&mesf=${mesf}&diaf=${fin.getDate().toString().padStart(2, '0')}&horaf=23&minf=59&grupo=`;
+            const params = `E=${tokenLimpio}&T=0&IMEI=TODOS&mesi=${mesi}&diai=${inicio.getDate().toString().padStart(2, '0')}&horai=00&mini=00&mesf=${mesf}&diaf=${fin.getDate().toString().padStart(2, '0')}&horaf=23&minf=59&grupo=`;
 
             return params;
         }
@@ -848,12 +1467,11 @@
             const fechaFin = document.getElementById('fecha_fin_manual').value;
             const token = document.getElementById('token_manual').value;
 
-            console.log('=== DEBUG GENERAR URLS ===');
+            console.log('=== DEBUG GENERAR URLS MANUAL ===');
             console.log('Fecha inicio:', fechaInicio);
             console.log('Fecha fin:', fechaFin);
             console.log('Token original:', token);
             console.log('Token length:', token.length);
-            console.log('Token bytes:', Array.from(token).map(char => char.charCodeAt(0)));
 
             const tokenLimpio = token.trim()
                 .replace(/\s+/g, '')
@@ -864,7 +1482,7 @@
             console.log('Token limpio:', tokenLimpio);
             console.log('¿Token cambió?', token !== tokenLimpio);
 
-            // Probar construcción de parámetros
+            // Usar la función corregida
             try {
                 const params = construirParametrosManual(fechaInicio, fechaFin, tokenLimpio);
                 console.log('Parámetros construidos:', params);
@@ -873,9 +1491,12 @@
                 const urlCompleta = baseUrl + 'RP131BodyExcesos.rep?' + params;
                 console.log('URL completa:', urlCompleta);
 
+                agregarLog(`🔧 URLs manuales generadas para ${fechaInicio} - ${fechaFin}`);
+
                 return urlCompleta;
             } catch (error) {
                 console.error('Error construyendo URL:', error);
+                agregarLog(`❌ Error generando URLs: ${error.message}`);
                 return null;
             }
         }

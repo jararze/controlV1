@@ -62,7 +62,7 @@ class ArgusController extends Controller
             ],
         ]);
 
-        // Obtener datos con selección específica de columnas
+        // Obtener datos de trucks
         $truckData = Truck::select([
             'patente',
             'fecha_salida',
@@ -72,6 +72,7 @@ class ArgusController extends Controller
             'fecha_registro'
         ])->get();
 
+        // MANTENER: Obtener datos del batch seleccionado para la vista
         $argusData = Argus::select([
             'patente',
             'hora_alarma',
@@ -88,6 +89,21 @@ class ArgusController extends Controller
             ->where('batch_id', $request->input('argus_file'))
             ->get();
 
+        // NUEVO: También obtener registros sin estado de BD externa para actualizar
+        $argusDataExterna = DB::connection('external_db')
+            ->table('bajada_argus')
+            ->select([
+                'id',
+                'Frota as patente',
+                'Hora_alarme as hora_alarma'
+            ])
+            ->whereNull('estado')
+            ->limit(2000) // Procesar lotes para evitar timeout
+            ->get();
+
+        Log::info('Procesando batch con ' . $argusData->count() . ' registros');
+        Log::info('Actualizando ' . $argusDataExterna->count() . ' registros sin estado en BD externa');
+
         // Validar fechas máximas
         $maxFechaSalida = $truckData->max('fecha_salida');
         $maxDiaArgus = $argusData->max('dia');
@@ -97,11 +113,10 @@ class ArgusController extends Controller
                 'La fecha máxima de Truck ('.$maxFechaSalida.') debe ser igual o mayor que la fecha máxima de Argus ('.$maxDiaArgus.').');
         }
 
-        // Pre-procesar y indexar los datos de truck
+        // Pre-procesar trucks (código existente)
         $trucksIndexed = $truckData->groupBy('patente')->map(function ($trucks) {
             return $trucks->map(function ($truck) {
                 try {
-                    // Validación de fecha de salida como en el original
                     $fechaSalida = $truck->fecha_salida && Carbon::parse($truck->fecha_salida)->toDateString() !== '1999-11-30'
                         ? trim($truck->fecha_salida)
                         : $truck->fecha_registro;
@@ -113,13 +128,11 @@ class ArgusController extends Controller
                     $horaSalida = $truck->hora_salida ? trim($truck->hora_salida) : null;
                     $horaLlegada = $truck->hora_llegada ? trim($truck->hora_llegada) : null;
 
-                    // Restar una hora y ajustar fecha si es necesario
+                    // Ajustar horas
                     if ($horaSalida) {
                         $horaSalidaCarbon = Carbon::createFromTimeString($horaSalida);
                         $horaOriginal = $horaSalidaCarbon->hour;
                         $horaSalidaCarbon->subHour();
-
-                        // Si al restar la hora pasamos a un día anterior
                         if ($horaSalidaCarbon->hour > $horaOriginal) {
                             $fechaSalida = Carbon::parse($fechaSalida)->subDay()->toDateString();
                         }
@@ -130,15 +143,12 @@ class ArgusController extends Controller
                         $horaLlegadaCarbon = Carbon::createFromTimeString($horaLlegada);
                         $horaOriginal = $horaLlegadaCarbon->hour;
                         $horaLlegadaCarbon->subHour();
-
-                        // Si al restar la hora pasamos a un día anterior
                         if ($horaLlegadaCarbon->hour > $horaOriginal) {
                             $fechaLlegada = Carbon::parse($fechaLlegada)->subDay()->toDateString();
                         }
                         $horaLlegada = $horaLlegadaCarbon->format('H:i:s');
                     }
 
-                    // Crear objetos Carbon para las comparaciones
                     $fechaHoraSalida = null;
                     $fechaHoraLlegada = null;
 
@@ -157,12 +167,6 @@ class ArgusController extends Controller
                     return [
                         'inicio' => $fechaHoraSalida,
                         'fin' => $fechaHoraLlegada,
-                        'datos_originales' => [
-                            'fecha_salida' => $fechaSalida,
-                            'hora_salida' => $horaSalida,
-                            'fecha_llegada' => $fechaLlegada,
-                            'hora_llegada' => $horaLlegada
-                        ]
                     ];
 
                 } catch (\Exception $e) {
@@ -172,8 +176,9 @@ class ArgusController extends Controller
             })->filter();
         });
 
-        // Procesar registros de Argus
+        // PARTE 1: Procesar batch seleccionado para la vista (lógica original)
         $result = collect();
+
         foreach ($argusData as $argusRow) {
             $matchFound = false;
 
@@ -190,21 +195,167 @@ class ArgusController extends Controller
                         }
                     }
                 } catch (\Exception $e) {
-                    Log::error("Error procesando hora de alarma para Argus ID {$argusRow->id}: " . $e->getMessage());
+                    Log::error("Error procesando hora de alarma para Argus ID {$argusRow->event_id}: " . $e->getMessage());
                 }
             }
 
+            // Solo agregar al resultado los que NO tienen match (para la vista)
             if (!$matchFound) {
                 $result->push($argusRow);
             }
         }
 
+        // PARTE 2: Actualizar estados en BD externa (registros sin estado)
+        $estadosParaActualizar = [];
+
+        foreach ($argusDataExterna as $argusRow) {
+            $matchFound = false;
+            $estadoCalculado = 'Sin Info';
+
+            if (isset($trucksIndexed[$argusRow->patente])) {
+                try {
+                    $horaAlarma = Carbon::parse($argusRow->hora_alarma);
+
+                    foreach ($trucksIndexed[$argusRow->patente] as $truck) {
+                        if ($truck['inicio'] &&
+                            $truck['fin'] &&
+                            $horaAlarma->between($truck['inicio'], $truck['fin'])) {
+                            $matchFound = true;
+                            break;
+                        }
+                    }
+
+                    $estadoCalculado = $matchFound ? 'Viaje CBN' : 'NO VIAJE CBN';
+
+                } catch (\Exception $e) {
+                    Log::error("Error procesando registro BD externa ID {$argusRow->id}: " . $e->getMessage());
+                    $estadoCalculado = 'Sin Info';
+                }
+            }
+
+            $estadosParaActualizar[] = [
+                'id' => $argusRow->id,
+                'estado' => $estadoCalculado
+            ];
+        }
+
+        // Actualizar BD externa
+        $this->actualizarEstadosBDExterna($estadosParaActualizar);
+
+        // Mantener funcionalidad original de la vista
         session(['excel_result' => $result]);
         return view('argus.compare', [
             'result' => $result,
             'truckFile' => $truckData,
-            'argusFile' => $argusData
+            'argusFile' => $argusData // Usar datos del batch para la vista
         ]);
+    }
+
+    private function actualizarEstadosBDExterna($estados)
+    {
+        if (empty($estados)) {
+            Log::info('No hay estados para actualizar');
+            return;
+        }
+
+        $primerosIds = array_slice(array_column($estados, 'event_id'), 0, 10);
+        Log::info('Primeros event_ids a actualizar: ' . implode(', ', $primerosIds));
+        Log::info('Primeros estados: ' . implode(', ', array_slice(array_column($estados, 'estado'), 0, 10)));
+
+        try {
+            Log::info('Actualizando ' . count($estados) . ' registros en BD externa');
+
+            $this->verificarColumnaEstado();
+
+            $lotes = array_chunk($estados, 500);
+            $totalActualizados = 0;
+
+            foreach ($lotes as $lote) {
+                $actualizados = $this->actualizarLote($lote);
+                $totalActualizados += $actualizados;
+            }
+
+            Log::info("BD externa actualizada: {$totalActualizados} registros");
+
+        } catch (\Exception $e) {
+            Log::error('Error actualizando BD externa: ' . $e->getMessage());
+        }
+    }
+
+    private function verificarColumnaEstado()
+    {
+        try {
+            // Test de conexión
+            $testConnection = DB::connection('external_db')->select('SELECT 1 as test');
+            Log::info('Conexión externa OK: ' . json_encode($testConnection));
+
+            // Verificar tabla
+            $tableExists = DB::connection('external_db')
+                ->select("SELECT COUNT(*) as count FROM information_schema.TABLES
+                     WHERE TABLE_SCHEMA = 'zsupagswcr'
+                     AND TABLE_NAME = 'bajada_argus'");
+            Log::info('Tabla bajada_argus existe: ' . $tableExists[0]->count);
+
+            // Verificar columna estado
+            $existe = DB::connection('external_db')
+                ->select("SELECT COUNT(*) as count FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = 'zsupagswcr'
+                     AND TABLE_NAME = 'bajada_argus'
+                     AND COLUMN_NAME = 'estado'");
+
+            Log::info('Columna estado existe: ' . $existe[0]->count);
+
+            if ($existe[0]->count == 0) {
+                Log::info('Creando columna estado en bajada_argus');
+                DB::connection('external_db')
+                    ->statement('ALTER TABLE bajada_argus ADD COLUMN estado VARCHAR(50) NULL');
+                Log::info('Columna estado creada exitosamente');
+            }
+
+            // Contar registros totales
+            $totalRegistros = DB::connection('external_db')
+                ->select('SELECT COUNT(*) as total FROM bajada_argus');
+            Log::info('Total registros en bajada_argus: ' . $totalRegistros[0]->total);
+
+        } catch (\Exception $e) {
+            Log::error('Error verificando BD externa: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    private function actualizarLote($lote)
+    {
+        try {
+            Log::info('Actualizando lote de ' . count($lote) . ' registros');
+
+            // Construir consulta UPDATE directa
+            $caseStatements = [];
+            $valores = [];
+            $ids = [];
+
+            foreach ($lote as $item) {
+                $caseStatements[] = "WHEN ? THEN ?";
+                $valores[] = $item['id']; // ID real de bajada_argus
+                $valores[] = $item['estado'];
+                $ids[] = $item['id'];
+            }
+
+            $sql = "UPDATE bajada_argus
+                SET estado = CASE id " . implode(' ', $caseStatements) . " ELSE estado END
+                WHERE id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")";
+
+            $parametros = array_merge($valores, $ids);
+
+            $actualizados = DB::connection('external_db')->update($sql, $parametros);
+
+            Log::info('Registros actualizados: ' . $actualizados);
+
+            return $actualizados;
+
+        } catch (\Exception $e) {
+            Log::error('Error actualizando lote: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     public function downloadExcel(Request $request)
