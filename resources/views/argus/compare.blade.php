@@ -10,15 +10,29 @@
                 <h1 class="font-medium text-lg text-gray-900">
                     Resultados de Comparación
                 </h1>
+                @if ($result->total() > 0)
+                    <span class="text-sm text-gray-500">
+                        {{ number_format($result->total()) }} registros sin viaje CBN
+                    </span>
+                @endif
             </div>
             <div>
                 <form action="{{ route('argus.files.process.download') }}" method="POST">
                     @csrf
-                    <button type="submit" class="btn btn-primary">Descargar Excel</button>
+                    <button type="submit" class="btn btn-primary">
+                        Descargar Excel
+                    </button>
                 </form>
             </div>
         </div>
     </div>
+
+    <!-- Mensajes de error / info -->
+    @if (session('error'))
+        <div class="container-fluid mb-4">
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        </div>
+    @endif
 
     <!-- Container -->
     <div class="container-fluid">
@@ -28,13 +42,13 @@
                     <h3 class="card-title">Datos de Argus que no son viajes CBN</h3>
                 </div>
                 <div class="card-body">
-                    @if ($result)
+                    @if ($result->total() > 0)
                         <table class="table table-auto table-border">
                             <thead>
                             <tr>
                                 <th>Operación</th>
                                 <th>Patente</th>
-                                <th>Dia</th>
+                                <th>Día</th>
                                 <th>Evento</th>
                                 <th>Motorista</th>
                                 <th>Hora Alarma</th>
@@ -61,8 +75,20 @@
                             @endforeach
                             </tbody>
                         </table>
+
+                        <!-- Paginación -->
+                        <div class="mt-4 flex items-center justify-between flex-wrap gap-3">
+                            <p class="text-sm text-gray-500">
+                                Mostrando
+                                {{ $result->firstItem() }}–{{ $result->lastItem() }}
+                                de {{ number_format($result->total()) }} registros
+                            </p>
+                            {{ $result->links() }}
+                        </div>
                     @else
-                        <p>No se encontraron datos que no estén entre las fechas de Truck.</p>
+                        <p class="text-gray-500 py-4">
+                            No se encontraron datos que no estén entre las fechas de Truck.
+                        </p>
                     @endif
                 </div>
             </div>
