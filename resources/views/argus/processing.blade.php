@@ -129,6 +129,11 @@
 
     <!-- JavaScript para actualización de estado -->
     <script>
+        // Batch ID del procesamiento Argus actual - leer de URL query param como fuente confiable
+        const urlParams = new URLSearchParams(window.location.search);
+        const argusBatchId = urlParams.get('batch_id');
+        console.log('argusBatchId from URL:', argusBatchId);
+
         // Variables para seguimiento de tiempo
         let startTime = new Date();
         let updateInterval;
@@ -169,9 +174,13 @@
                             </div>
                         `;
 
-                        // Redirigir después de 3 segundos
+                        // Redirigir a resultados si hay batch_id, sino a selección
                         setTimeout(() => {
-                            window.location.href = '/argus/files/select';
+                            if (argusBatchId) {
+                                window.location.href = '/argus/files/results?batch_id=' + encodeURIComponent(argusBatchId);
+                            } else {
+                                window.location.href = '/argus/files/select';
+                            }
                         }, 3000);
 
                         return;

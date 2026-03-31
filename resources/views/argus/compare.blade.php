@@ -16,13 +16,19 @@
                     </span>
                 @endif
             </div>
-            <div>
+            <div class="flex items-center gap-3">
                 <form action="{{ route('argus.files.process.download') }}" method="POST">
                     @csrf
+                    @if (isset($batchId))
+                        <input type="hidden" name="batch_id" value="{{ $batchId }}">
+                    @endif
                     <button type="submit" class="btn btn-primary">
                         Descargar Excel
                     </button>
                 </form>
+                <a href="{{ route('argus.files.select') }}" class="btn btn-light">
+                    Volver
+                </a>
             </div>
         </div>
     </div>

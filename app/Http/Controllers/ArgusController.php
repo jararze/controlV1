@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ArgusExport;
+use App\Jobs\ProcessArgusComparison;
 use App\Models\Argus;
 use App\Models\Truck;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
@@ -49,8 +51,6 @@ class ArgusController extends Controller
 
     public function processFiles(Request $request)
     {
-        set_time_limit(1900);
-
         $request->validate([
             'argus_file' => [
                 'required',
@@ -65,72 +65,99 @@ class ArgusController extends Controller
 
         $batchId = $request->input('argus_file');
 
-        // 1. Cargar trucks (dataset acotado, cabe en memoria)
-        $truckData = Truck::select([
-            'patente',
-            'fecha_salida',
-            'fecha_llegada',
-            'hora_salida',
-            'hora_llegada',
-            'fecha_registro'
-        ])->get();
-
-        // 2. Validar fechas ANTES de procesar todo
-        $maxFechaSalida = $truckData->max('fecha_salida');
+        // Validar fechas antes de despachar el job
+        $maxFechaSalida = Truck::max('fecha_salida');
         $maxDiaArgus    = Argus::where('batch_id', $batchId)->max('dia');
 
-        if (Carbon::parse($maxFechaSalida)->lt(Carbon::parse($maxDiaArgus))) {
+        if ($maxFechaSalida && $maxDiaArgus && Carbon::parse($maxFechaSalida)->lt(Carbon::parse($maxDiaArgus))) {
             return back()->with('error',
                 "La fecha máxima de Truck ({$maxFechaSalida}) debe ser igual o mayor que la fecha máxima de Argus ({$maxDiaArgus})."
             );
         }
 
-        // 3. Construir índice de trucks (solo arrays PHP, más liviano que Collections)
-        $trucksIndexed = $this->buildTrucksIndex($truckData);
-        unset($truckData); // liberar memoria inmediatamente
+        ProcessArgusComparison::dispatch($batchId);
 
-        Log::info("Índice de trucks construido para batch {$batchId}");
+        return redirect()->route('argus.files.results', ['batch_id' => $batchId]);
+    }
 
-        // 4. Procesar Argus en chunks → solo guardar event_ids sin match
-        $nonMatchEventIds = [];
+    /**
+     * Muestra los resultados de la comparación Argus (post-job).
+     */
+    public function compareResults(Request $request)
+    {
+        $batchId = $request->input('batch_id');
 
-        Argus::where('batch_id', $batchId)
-            ->select(['patente', 'hora_alarma', 'event_id'])
-            ->chunk(500, function ($chunk) use ($trucksIndexed, &$nonMatchEventIds) {
-                foreach ($chunk as $argusRow) {
-                    if (! $this->rowHasMatch($argusRow->patente, $argusRow->hora_alarma, $trucksIndexed)) {
-                        $nonMatchEventIds[] = $argusRow->event_id;
-                    }
-                }
-            });
+        if (! $batchId) {
+            return redirect()->route('argus.files.select')->with('error', 'No se especificó un batch.');
+        }
 
-        Log::info("Procesado batch {$batchId}: " . count($nonMatchEventIds) . " registros sin match.");
+        $cached = Cache::get("argus_comparison_{$batchId}");
 
-        // 5. Guardar SOLO los IDs en sesión (liviano)
-        session([
-            'argus_non_match_ids' => $nonMatchEventIds,
-            'argus_batch_id'      => $batchId,
-        ]);
+        // Job aún no terminó — mostrar vista de espera con auto-refresh
+        if (! $cached) {
+            return view('argus.waiting', compact('batchId'));
+        }
 
-        // 6. Procesar BD externa en chunks
-        $this->processExternalDbChunked($trucksIndexed);
+        $nonMatchIds = $cached['non_match_ids'] ?? [];
 
-        // 7. Primera página para la vista (paginado, no se carga todo)
-        $result = Argus::whereIn('event_id', $nonMatchEventIds)
+        if (empty($nonMatchIds)) {
+            return redirect()->route('argus.files.select')
+                ->with('success', 'Todos los registros Argus tienen match con viajes de truck.');
+        }
+
+        $result = Argus::whereIn('event_id', $nonMatchIds)
             ->select([
                 'patente', 'hora_alarma', 'dia', 'evento', 'motorista',
                 'velocidade', 'latitude', 'longitude', 'operacion', 'event_id'
             ])
             ->paginate(100);
 
-        return view('argus.compare', compact('result'));
+        return view('argus.compare', compact('result', 'batchId'));
     }
 
-    // ─── Helpers privados ────────────────────────────────────────────────────────
+    public function downloadExcel(Request $request)
+    {
+        // Intentar leer de cache primero, fallback a sesión para compatibilidad
+        $batchId = $request->input('batch_id') ?? session('argus_batch_id');
+        $cached  = $batchId ? Cache::get("argus_comparison_{$batchId}") : null;
+        $ids     = $cached['non_match_ids'] ?? session('argus_non_match_ids');
+
+        if (empty($ids)) {
+            return back()->with('error', 'No hay datos disponibles para exportar.');
+        }
+
+        $result = Argus::whereIn('event_id', $ids)
+            ->select([
+                'patente', 'hora_alarma', 'dia', 'evento', 'motorista',
+                'velocidade', 'latitude', 'longitude', 'operacion', 'event_id'
+            ])
+            ->get();
+
+        return Excel::download(new ArgusExport($result), 'limpieza_argus.xlsx');
+    }
 
     /**
-     * Construye un índice patente → [{inicio, fin}] usando arrays PHP nativos.
+     * Muestra la página de procesamiento de archivos.
      */
+    public function show(Request $request, JobStatusChecker $jobStatusChecker)
+    {
+        $batchId = $request->input('batch_id');
+        $jobsRunning = $jobStatusChecker->areJobsRunning();
+
+        // Si no hay jobs corriendo y tenemos batch_id, redirigir directo a resultados
+        if (! $jobsRunning && $batchId) {
+            return redirect()->route('argus.files.results', ['batch_id' => $batchId]);
+        }
+
+        if (! $jobsRunning && ! $request->session()->has('success')) {
+            return redirect()->route('dashboard')->with('info', 'No hay archivos en procesamiento actualmente.');
+        }
+
+        return view('argus.processing', ['batchId' => $batchId]);
+    }
+
+    // ─── Helpers privados (usados por processExternalFiles) ─────────────────────
+
     private function buildTrucksIndex($truckData): array
     {
         $indexed = [];
@@ -187,7 +214,6 @@ class ArgusController extends Controller
                     'inicio' => $inicio,
                     'fin'    => $fin,
                 ];
-
             } catch (\Exception $e) {
                 Log::error("buildTrucksIndex: patente {$truck->patente} — " . $e->getMessage());
             }
@@ -196,9 +222,6 @@ class ArgusController extends Controller
         return $indexed;
     }
 
-    /**
-     * Verifica si una fila de Argus tiene match con algún viaje de truck.
-     */
     private function rowHasMatch(string $patente, $horaAlarma, array $trucksIndexed): bool
     {
         if (! isset($trucksIndexed[$patente])) {
@@ -220,103 +243,6 @@ class ArgusController extends Controller
         return false;
     }
 
-    /**
-     * Procesa la BD externa en chunks para no agotar memoria.
-     */
-    private function processExternalDbChunked(array $trucksIndexed): void
-    {
-        try {
-            $this->verificarColumnaEstado();
-
-            DB::connection('external_db')
-                ->table('bajada_argus')
-                ->select(['id', 'Frota as patente', 'Hora_alarme as hora_alarma'])
-                ->whereNull('estado')
-                ->orderBy('id')
-                ->chunk(500, function ($chunk) use ($trucksIndexed) {
-                    $lote = [];
-
-                    foreach ($chunk as $row) {
-                        $match  = $this->rowHasMatch($row->patente, $row->hora_alarma, $trucksIndexed);
-                        $lote[] = [
-                            'id'     => $row->id,
-                            'estado' => $match ? 'Viaje CBN' : 'NO VIAJE CBN',
-                        ];
-                    }
-
-                    $this->actualizarLote($lote);
-                });
-
-            Log::info('BD externa actualizada correctamente (chunk mode).');
-
-        } catch (\Exception $e) {
-            Log::error('processExternalDbChunked: ' . $e->getMessage());
-        }
-    }
-
-    private function actualizarEstadosBDExterna($estados)
-    {
-        if (empty($estados)) {
-            Log::info('No hay estados para actualizar');
-            return;
-        }
-
-        try {
-            Log::info('Actualizando ' . count($estados) . ' registros en BD externa');
-
-            $this->verificarColumnaEstado();
-
-            $lotes           = array_chunk($estados, 500);
-            $totalActualizados = 0;
-
-            foreach ($lotes as $lote) {
-                $totalActualizados += $this->actualizarLote($lote);
-            }
-
-            Log::info("BD externa actualizada: {$totalActualizados} registros");
-
-        } catch (\Exception $e) {
-            Log::error('Error actualizando BD externa: ' . $e->getMessage());
-        }
-    }
-
-    private function verificarColumnaEstado()
-    {
-        try {
-            $testConnection = DB::connection('external_db')->select('SELECT 1 as test');
-            Log::info('Conexión externa OK: ' . json_encode($testConnection));
-
-            $tableExists = DB::connection('external_db')
-                ->select("SELECT COUNT(*) as count FROM information_schema.TABLES
-                          WHERE TABLE_SCHEMA = 'zsupagswcr'
-                          AND TABLE_NAME = 'bajada_argus'");
-            Log::info('Tabla bajada_argus existe: ' . $tableExists[0]->count);
-
-            $existe = DB::connection('external_db')
-                ->select("SELECT COUNT(*) as count FROM information_schema.COLUMNS
-                          WHERE TABLE_SCHEMA = 'zsupagswcr'
-                          AND TABLE_NAME = 'bajada_argus'
-                          AND COLUMN_NAME = 'estado'");
-
-            Log::info('Columna estado existe: ' . $existe[0]->count);
-
-            if ($existe[0]->count == 0) {
-                Log::info('Creando columna estado en bajada_argus');
-                DB::connection('external_db')
-                    ->statement('ALTER TABLE bajada_argus ADD COLUMN estado VARCHAR(50) NULL');
-                Log::info('Columna estado creada exitosamente');
-            }
-
-            $totalRegistros = DB::connection('external_db')
-                ->select('SELECT COUNT(*) as total FROM bajada_argus');
-            Log::info('Total registros en bajada_argus: ' . $totalRegistros[0]->total);
-
-        } catch (\Exception $e) {
-            Log::error('Error verificando BD externa: ' . $e->getMessage());
-            throw $e;
-        }
-    }
-
     private function actualizarLote($lote)
     {
         if (empty($lote)) {
@@ -324,8 +250,6 @@ class ArgusController extends Controller
         }
 
         try {
-            Log::info('Actualizando lote de ' . count($lote) . ' registros');
-
             $caseStatements = [];
             $valores        = [];
             $ids            = [];
@@ -341,12 +265,7 @@ class ArgusController extends Controller
                     SET estado = CASE id " . implode(' ', $caseStatements) . " ELSE estado END
                     WHERE id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")";
 
-            $parametros  = array_merge($valores, $ids);
-            $actualizados = DB::connection('external_db')->update($sql, $parametros);
-
-            Log::info('Registros actualizados en lote: ' . $actualizados);
-
-            return $actualizados;
+            return DB::connection('external_db')->update($sql, array_merge($valores, $ids));
 
         } catch (\Exception $e) {
             Log::error('Error actualizando lote: ' . $e->getMessage());
@@ -354,39 +273,7 @@ class ArgusController extends Controller
         }
     }
 
-    public function downloadExcel(Request $request)
-    {
-        $ids     = session('argus_non_match_ids');
-        $batchId = session('argus_batch_id');
-
-        if (empty($ids) || ! $batchId) {
-            return back()->with('error', 'No hay datos disponibles para exportar.');
-        }
-
-        // Re-query limpio en lugar de deserializar la colección completa de sesión
-        $result = Argus::whereIn('event_id', $ids)
-            ->select([
-                'patente', 'hora_alarma', 'dia', 'evento', 'motorista',
-                'velocidade', 'latitude', 'longitude', 'operacion', 'event_id'
-            ])
-            ->get();
-
-        return Excel::download(new ArgusExport($result), 'limpieza_argus.xlsx');
-    }
-
-    /**
-     * Muestra la página de procesamiento de archivos.
-     */
-    public function show(Request $request, JobStatusChecker $jobStatusChecker)
-    {
-        $jobsRunning = $jobStatusChecker->areJobsRunning();
-
-        if (! $jobsRunning && ! $request->session()->has('success')) {
-            return redirect()->route('dashboard')->with('info', 'No hay archivos en procesamiento actualmente.');
-        }
-
-        return view('argus.processing');
-    }
+    // ─── processExternalFiles (endpoint independiente, sin cambios) ──────────────
 
     public function processExternalFiles(Request $request)
     {

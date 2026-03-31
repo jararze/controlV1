@@ -23,7 +23,8 @@ class JobStatusChecker
                 $pendingJobs = DB::table('jobs')
                     ->where(function ($query) {
                         $query->where('payload', 'like', '%ProcessTruckFile%')
-                            ->orWhere('payload', 'like', '%ProcessArgusFile%');
+                            ->orWhere('payload', 'like', '%ProcessArgusFile%')
+                            ->orWhere('payload', 'like', '%ProcessArgusComparison%');
                     })
                     ->count();
 
@@ -92,7 +93,8 @@ class JobStatusChecker
     }
 
     /**
-     * Check if lock files exist for our processes
+     * Check if lock files exist for our processes.
+     * Automatically removes orphan lock files (no update in 60+ minutes).
      *
      * @return bool
      */
@@ -100,23 +102,57 @@ class JobStatusChecker
     {
         $directory = storage_path('app/locks');
 
-        // Si el directorio no existe, no hay jobs corriendo
         if (!file_exists($directory)) {
             return false;
         }
 
         $lockFiles = [
             'truck_processing.lock',
-            'argus_processing.lock'
+            'argus_processing.lock',
+            'argus_comparison_processing.lock',
         ];
 
+        $hasActiveLock = false;
+
         foreach ($lockFiles as $lockFile) {
-            if (file_exists($directory . '/' . $lockFile)) {
-                return true;
+            $filePath = $directory . '/' . $lockFile;
+
+            if (file_exists($filePath)) {
+                if ($this->isOrphanLockFile($filePath)) {
+                    unlink($filePath);
+                    \Illuminate\Support\Facades\Log::warning("Lock huérfano eliminado: {$lockFile}");
+                    continue;
+                }
+                $hasActiveLock = true;
             }
         }
 
-        return false;
+        return $hasActiveLock;
+    }
+
+    /**
+     * Determine if a lock file is orphaned (no update in 60+ minutes).
+     */
+    private function isOrphanLockFile(string $filePath): bool
+    {
+        try {
+            $data = json_decode(file_get_contents($filePath), true);
+
+            if (!$data) {
+                return true;
+            }
+
+            $lastUpdate = $data['last_update'] ?? $data['started_at'] ?? null;
+
+            if (!$lastUpdate) {
+                return true;
+            }
+
+            return Carbon::parse($lastUpdate)->diffInMinutes(now()) > 60;
+
+        } catch (\Exception $e) {
+            return true;
+        }
     }
 
     /**
@@ -135,7 +171,8 @@ class JobStatusChecker
         $result = [];
         $lockFiles = [
             'truck_processing.lock' => 'Truck',
-            'argus_processing.lock' => 'Argus'
+            'argus_processing.lock' => 'Argus',
+            'argus_comparison_processing.lock' => 'Argus Comparison',
         ];
 
         foreach ($lockFiles as $lockFile => $jobType) {

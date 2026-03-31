@@ -115,7 +115,7 @@ return [
         ],
 
         'external_db' => [
-            'driver' => 'mysql', // o el driver que corresponda (pgsql, sqlsrv, etc.)
+            'driver' => 'mysql',
             'host' => env('EXT_DB_HOST', '159.203.123.109'),
             'port' => env('EXT_DB_PORT', '3306'),
             'database' => env('EXT_DB_DATABASE', 'zsupagswcr'),
@@ -126,6 +126,9 @@ return [
             'prefix' => '',
             'strict' => true,
             'engine' => null,
+            'options' => [
+                \PDO::ATTR_TIMEOUT => 30,
+            ],
         ],
 
     ],
