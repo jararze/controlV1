@@ -156,6 +156,34 @@ class ArgusController extends Controller
         return view('argus.processing', ['batchId' => $batchId]);
     }
 
+    /**
+     * Devuelve el progreso de la comparación Argus en JSON.
+     */
+    public function progress(string $batchId)
+    {
+        $data = Cache::get("argus_progress_{$batchId}");
+
+        if (! $data) {
+            return response()->json([
+                'processed' => 0,
+                'total' => 0,
+                'pct' => 0,
+                'finished' => false,
+            ]);
+        }
+
+        $pct = $data['total'] > 0
+            ? round(($data['processed'] / $data['total']) * 100, 1)
+            : 0;
+
+        return response()->json([
+            'processed' => $data['processed'],
+            'total' => $data['total'],
+            'pct' => $pct,
+            'finished' => $data['finished'],
+        ]);
+    }
+
     // ─── Helpers privados (usados por processExternalFiles) ─────────────────────
 
     private function buildTrucksIndex($truckData): array

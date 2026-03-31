@@ -59,16 +59,30 @@ class ProcessArgusComparison implements ShouldQueue
             $nonMatchEventIds = [];
             $processed = 0;
 
+            Cache::put("argus_progress_{$this->batchId}", [
+                'processed' => 0,
+                'total' => $totalArgus,
+                'finished' => false,
+            ], 14400);
+
             Argus::where('batch_id', $this->batchId)
                 ->select(['patente', 'hora_alarma', 'event_id'])
-                ->chunk(500, function ($chunk) use ($trucksIndexed, &$nonMatchEventIds, &$processed) {
+                ->chunk(500, function ($chunk) use ($trucksIndexed, &$nonMatchEventIds, &$processed, $totalArgus) {
                     foreach ($chunk as $row) {
                         if (! $this->rowHasMatch($row->patente, $row->hora_alarma, $trucksIndexed)) {
                             $nonMatchEventIds[] = $row->event_id;
                         }
+                        $processed++;
+
+                        if ($processed % 10 === 0) {
+                            Cache::put("argus_progress_{$this->batchId}", [
+                                'processed' => $processed,
+                                'total' => $totalArgus,
+                                'finished' => false,
+                            ], 14400);
+                        }
                     }
 
-                    $processed += $chunk->count();
                     $this->updateLockFileProgress('argus_comparison', $processed);
                 });
 
@@ -82,6 +96,12 @@ class ProcessArgusComparison implements ShouldQueue
             unset($trucksIndexed);
 
             // 4. Guardar resultados en cache (TTL 4 horas)
+            Cache::put("argus_progress_{$this->batchId}", [
+                'processed' => $processed,
+                'total' => $processed,
+                'finished' => true,
+            ], 14400);
+
             Cache::put("argus_comparison_{$this->batchId}", [
                 'non_match_ids' => $nonMatchEventIds,
                 'total_processed' => $processed,

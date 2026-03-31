@@ -83,6 +83,7 @@ Route::middleware('auth', 'verified')->group(function () {
     Route::get('argus/files/select', [ArgusController::class, 'selectFiles'])->name('argus.files.select');
     Route::post('argus/files/process', [ArgusController::class, 'processFiles'])->name('argus.files.process');
     Route::get('argus/files/results', [ArgusController::class, 'compareResults'])->name('argus.files.results');
+    Route::get('argus/progress/{batchId}', [ArgusController::class, 'progress'])->name('argus.progress');
     Route::post('argus/files/process/download', [ArgusController::class, 'downloadExcel'])->name('argus.files.process.download');
 
     Route::get('/argus/process-external', [ArgusController::class, 'processExternalFiles'])->name('argus.external.process');
