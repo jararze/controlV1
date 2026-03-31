@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Argus;
 use App\Models\Truck;
 use App\Traits\LockFileProcessingTrait;
-use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -42,14 +41,20 @@ class ProcessArgusComparison implements ShouldQueue
                 'total_argus' => $totalArgus,
             ]);
 
-            // 1. Cargar trucks y construir índice
+            // P5: Pre-filtrar trucks solo a patentes que existen en el batch
+            $patentesArgus = Argus::where('batch_id', $this->batchId)
+                ->distinct()
+                ->pluck('patente')
+                ->toArray();
+
             $truckData = Truck::select([
                 'patente', 'fecha_salida', 'fecha_llegada',
                 'hora_salida', 'hora_llegada', 'fecha_registro',
-            ])->get();
+            ])->whereIn('patente', $patentesArgus)->get();
 
+            // P2: buildTrucksIndex usa strtotime() en vez de Carbon
             $trucksIndexed = $this->buildTrucksIndex($truckData);
-            unset($truckData);
+            unset($truckData, $patentesArgus);
 
             Log::info("ProcessArgusComparison: índice de trucks construido", [
                 'patentes' => count($trucksIndexed),
@@ -72,16 +77,15 @@ class ProcessArgusComparison implements ShouldQueue
                         if (! $this->rowHasMatch($row->patente, $row->hora_alarma, $trucksIndexed)) {
                             $nonMatchEventIds[] = $row->event_id;
                         }
-                        $processed++;
-
-                        if ($processed % 10 === 0) {
-                            Cache::put("argus_progress_{$this->batchId}", [
-                                'processed' => $processed,
-                                'total' => $totalArgus,
-                                'finished' => false,
-                            ], 14400);
-                        }
                     }
+
+                    // P4: Cache::put por chunk, no cada 10 registros
+                    $processed += $chunk->count();
+                    Cache::put("argus_progress_{$this->batchId}", [
+                        'processed' => $processed,
+                        'total' => $totalArgus,
+                        'finished' => false,
+                    ], 14400);
 
                     $this->updateLockFileProgress('argus_comparison', $processed);
                 });
@@ -91,8 +95,8 @@ class ProcessArgusComparison implements ShouldQueue
                 'sin_match' => count($nonMatchEventIds),
             ]);
 
-            // 3. Actualizar BD externa en chunks
-            $this->processExternalDbChunked($trucksIndexed);
+            // P1: Actualizar BD externa usando los IDs ya calculados, sin re-hacer matching
+            $this->updateExternalDbWithIds($nonMatchEventIds);
             unset($trucksIndexed);
 
             // 4. Guardar resultados en cache (TTL 4 horas)
@@ -137,7 +141,7 @@ class ProcessArgusComparison implements ShouldQueue
     }
 
     /**
-     * Construye índice patente → [{inicio, fin}] con arrays PHP nativos.
+     * P2: Construye índice patente → [{inicio, fin}] usando strtotime() en vez de Carbon.
      */
     private function buildTrucksIndex($truckData): array
     {
@@ -145,50 +149,62 @@ class ProcessArgusComparison implements ShouldQueue
 
         foreach ($truckData as $truck) {
             try {
-                $fechaSalida = ($truck->fecha_salida && Carbon::parse($truck->fecha_salida)->toDateString() !== '1999-11-30')
-                    ? trim($truck->fecha_salida)
-                    : $truck->fecha_registro;
+                $fechaSalida = $truck->fecha_salida;
+                $fechaLlegada = $truck->fecha_llegada;
+                $fechaRegistro = $truck->fecha_registro;
 
-                $fechaLlegada = ($truck->fecha_llegada && Carbon::parse($truck->fecha_llegada)->toDateString() !== '1999-11-30')
-                    ? trim($truck->fecha_llegada)
-                    : $truck->fecha_registro;
-
-                $horaSalida  = $truck->hora_salida  ? trim($truck->hora_salida)  : null;
-                $horaLlegada = $truck->hora_llegada ? trim($truck->hora_llegada) : null;
-
-                if ($horaSalida) {
-                    $c    = Carbon::createFromTimeString($horaSalida);
-                    $orig = $c->hour;
-                    $c->subHour();
-                    if ($c->hour > $orig) {
-                        $fechaSalida = Carbon::parse($fechaSalida)->subDay()->toDateString();
-                    }
-                    $horaSalida = $c->format('H:i:s');
+                // Validar fechas sentinel (1999-11-30)
+                if ($fechaSalida) {
+                    $fsParsed = is_object($fechaSalida) ? $fechaSalida->format('Y-m-d') : substr($fechaSalida, 0, 10);
+                    $fechaSalida = ($fsParsed === '1999-11-30') ? null : $fsParsed;
+                }
+                if ($fechaLlegada) {
+                    $flParsed = is_object($fechaLlegada) ? $fechaLlegada->format('Y-m-d') : substr($fechaLlegada, 0, 10);
+                    $fechaLlegada = ($flParsed === '1999-11-30') ? null : $flParsed;
                 }
 
-                if ($horaLlegada) {
-                    $c    = Carbon::createFromTimeString($horaLlegada);
-                    $orig = $c->hour;
-                    $c->subHour();
-                    if ($c->hour > $orig) {
-                        $fechaLlegada = Carbon::parse($fechaLlegada)->subDay()->toDateString();
+                $fechaSalida = $fechaSalida ?: (is_object($fechaRegistro) ? $fechaRegistro->format('Y-m-d') : substr($fechaRegistro ?? '', 0, 10));
+                $fechaLlegada = $fechaLlegada ?: (is_object($fechaRegistro) ? $fechaRegistro->format('Y-m-d') : substr($fechaRegistro ?? '', 0, 10));
+
+                $horaSalida = $truck->hora_salida ? trim($truck->hora_salida) : null;
+                $horaLlegada = $truck->hora_llegada ? trim($truck->hora_llegada) : null;
+
+                // Restar 1 hora a hora_salida
+                if ($horaSalida) {
+                    $ts = strtotime("1970-01-01 {$horaSalida}");
+                    $ts -= 3600;
+                    if ($ts < 0) {
+                        // Cruzó medianoche hacia atrás: restar un día a la fecha
+                        $ts += 86400;
+                        $fechaSalida = date('Y-m-d', strtotime($fechaSalida) - 86400);
                     }
-                    $horaLlegada = $c->format('H:i:s');
+                    $horaSalida = date('H:i:s', $ts);
+                }
+
+                // Restar 1 hora a hora_llegada
+                if ($horaLlegada) {
+                    $ts = strtotime("1970-01-01 {$horaLlegada}");
+                    $ts -= 3600;
+                    if ($ts < 0) {
+                        $ts += 86400;
+                        $fechaLlegada = date('Y-m-d', strtotime($fechaLlegada) - 86400);
+                    }
+                    $horaLlegada = date('H:i:s', $ts);
                 }
 
                 $inicio = null;
-                $fin    = null;
+                $fin = null;
 
                 if ($fechaSalida && $horaSalida) {
-                    $inicio = Carbon::parse($fechaSalida)->setTimeFromTimeString($horaSalida);
+                    $inicio = strtotime("{$fechaSalida} {$horaSalida}");
                 } elseif ($fechaSalida) {
-                    $inicio = Carbon::parse($fechaSalida);
+                    $inicio = strtotime($fechaSalida);
                 }
 
                 if ($fechaLlegada && $horaLlegada) {
-                    $fin = Carbon::parse($fechaLlegada)->setTimeFromTimeString($horaLlegada);
+                    $fin = strtotime("{$fechaLlegada} {$horaLlegada}");
                 } elseif ($fechaLlegada) {
-                    $fin = Carbon::parse($fechaLlegada);
+                    $fin = strtotime($fechaLlegada);
                 }
 
                 $indexed[$truck->patente][] = [
@@ -204,7 +220,7 @@ class ProcessArgusComparison implements ShouldQueue
     }
 
     /**
-     * Verifica si una fila de Argus tiene match con algún viaje de truck.
+     * P2: Verifica match usando timestamps Unix en vez de Carbon.
      */
     private function rowHasMatch(string $patente, $horaAlarma, array $trucksIndexed): bool
     {
@@ -212,49 +228,49 @@ class ProcessArgusComparison implements ShouldQueue
             return false;
         }
 
-        try {
-            $ts = Carbon::parse($horaAlarma);
+        $ts = is_object($horaAlarma) ? $horaAlarma->getTimestamp() : strtotime($horaAlarma);
 
-            foreach ($trucksIndexed[$patente] as $truck) {
-                if ($truck['inicio'] && $truck['fin'] && $ts->between($truck['inicio'], $truck['fin'])) {
-                    return true;
-                }
+        if ($ts === false) {
+            return false;
+        }
+
+        foreach ($trucksIndexed[$patente] as $truck) {
+            if ($truck['inicio'] && $truck['fin'] && $ts >= $truck['inicio'] && $ts <= $truck['fin']) {
+                return true;
             }
-        } catch (\Exception $e) {
-            Log::error("rowHasMatch: patente {$patente} — " . $e->getMessage());
         }
 
         return false;
     }
 
     /**
-     * Procesa la BD externa en chunks.
+     * P1: Actualiza BD externa usando los non-match IDs ya calculados.
+     * No re-ejecuta rowHasMatch().
      */
-    private function processExternalDbChunked(array $trucksIndexed): void
+    private function updateExternalDbWithIds(array $nonMatchEventIds): void
     {
         try {
             $this->verificarColumnaEstado();
 
+            // Marcar no-match en chunks de 500
+            $chunks = array_chunk($nonMatchEventIds, 500);
+            foreach ($chunks as $idChunk) {
+                DB::connection('external_db')
+                    ->table('bajada_argus')
+                    ->whereIn('id', $idChunk)
+                    ->update(['estado' => 'NO VIAJE CBN']);
+            }
+
+            // Marcar el resto como Viaje CBN (los que no están en non-match)
+            // Hacerlo en batch: solo los que tienen estado NULL
             DB::connection('external_db')
                 ->table('bajada_argus')
-                ->select(['id', 'Frota as patente', 'Hora_alarme as hora_alarma'])
                 ->whereNull('estado')
-                ->orderBy('id')
-                ->chunk(500, function ($chunk) use ($trucksIndexed) {
-                    $lote = [];
+                ->update(['estado' => 'Viaje CBN']);
 
-                    foreach ($chunk as $row) {
-                        $match  = $this->rowHasMatch($row->patente, $row->hora_alarma, $trucksIndexed);
-                        $lote[] = [
-                            'id'     => $row->id,
-                            'estado' => $match ? 'Viaje CBN' : 'NO VIAJE CBN',
-                        ];
-                    }
-
-                    $this->actualizarLote($lote);
-                });
-
-            Log::info('ProcessArgusComparison: BD externa actualizada.');
+            Log::info('ProcessArgusComparison: BD externa actualizada.', [
+                'non_match_actualizados' => count($nonMatchEventIds),
+            ]);
 
         } catch (\Exception $e) {
             Log::error('ProcessArgusComparison: error en BD externa — ' . $e->getMessage());
@@ -273,36 +289,6 @@ class ProcessArgusComparison implements ShouldQueue
             DB::connection('external_db')
                 ->statement('ALTER TABLE bajada_argus ADD COLUMN estado VARCHAR(50) NULL');
             Log::info('ProcessArgusComparison: columna estado creada en bajada_argus.');
-        }
-    }
-
-    private function actualizarLote(array $lote): int
-    {
-        if (empty($lote)) {
-            return 0;
-        }
-
-        try {
-            $caseStatements = [];
-            $valores        = [];
-            $ids            = [];
-
-            foreach ($lote as $item) {
-                $caseStatements[] = "WHEN ? THEN ?";
-                $valores[]        = $item['id'];
-                $valores[]        = $item['estado'];
-                $ids[]            = $item['id'];
-            }
-
-            $sql = "UPDATE bajada_argus
-                    SET estado = CASE id " . implode(' ', $caseStatements) . " ELSE estado END
-                    WHERE id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")";
-
-            return DB::connection('external_db')->update($sql, array_merge($valores, $ids));
-
-        } catch (\Exception $e) {
-            Log::error('ProcessArgusComparison: error actualizando lote — ' . $e->getMessage());
-            return 0;
         }
     }
 }
